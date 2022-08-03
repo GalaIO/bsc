@@ -20,6 +20,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/perf"
 	"math/big"
 	"runtime"
 	"sort"
@@ -1331,9 +1332,12 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 	}
 
 	commmitTrie := func() error {
+		sTotal := time.Now()
 		commitErr := func() error {
+			var sV time.Time
 			if s.pipeCommit {
 				<-snapUpdated
+				sV = time.Now()
 				// Due to state verification pipeline, the accounts roots are not updated, leading to the data in the difflayer is not correct, capture the correct data here
 				s.AccountsIntermediateRoot()
 				if parent := s.snap.Root(); parent != s.expectedRoot {
@@ -1343,12 +1347,16 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 					}
 					s.snaps.Snapshot(s.expectedRoot).CorrectAccounts(accountData)
 				}
+			} else {
+				sV = time.Now()
 			}
 
 			if s.stateRoot = s.StateIntermediateRoot(); s.fullProcessed && s.expectedRoot != s.stateRoot {
 				log.Error("Invalid merkle root", "remote", s.expectedRoot, "local", s.stateRoot)
 				return fmt.Errorf("invalid merkle root (remote: %x local: %x)", s.expectedRoot, s.stateRoot)
 			}
+			perf.RecordMPMetrics(perf.MpImportingVerifyState, sV)
+			sV = time.Now()
 
 			tasks := make(chan func())
 			taskResults := make(chan error, len(s.stateObjectsDirty))
@@ -1418,6 +1426,8 @@ func (s *StateDB) Commit(failPostCommitFunc func(), postCommitFuncs ...func() er
 				}
 			}
 			wg.Wait()
+			perf.RecordMPMetrics(perf.MpImportingCommitTrieCommit, sV)
+			perf.RecordMPMetrics(perf.MpImportingCommitTrieTotal, sTotal)
 			return nil
 		}()
 
