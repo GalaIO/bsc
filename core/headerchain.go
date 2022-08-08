@@ -494,6 +494,7 @@ func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header 
 		return header.(*types.Header)
 	}
 	header := rawdb.ReadHeader(hc.chainDb, hash, number)
+	log.Info("GetHeader...", "number", number, "hash", hash, "header", header == nil)
 	if header == nil {
 		return nil
 	}
@@ -526,6 +527,7 @@ func (hc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
 // caching it (associated with its hash) if found.
 func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	hash := rawdb.ReadCanonicalHash(hc.chainDb, number)
+	log.Info("GetHeaderByNumber...", "number", number, "hash", hash)
 	if hash == (common.Hash{}) {
 		return nil
 	}
