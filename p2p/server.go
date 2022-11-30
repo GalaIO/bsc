@@ -886,6 +886,7 @@ func (srv *Server) listenLoop() {
 		)
 		for {
 			fd, err = srv.listener.Accept()
+			log.Info("listenLoop accept conn", "err", err)
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
 					srv.log.Debug("Temporary read error", "err", err)
@@ -903,7 +904,7 @@ func (srv *Server) listenLoop() {
 
 		remoteIP := netutil.AddrIP(fd.RemoteAddr())
 		if err := srv.checkInboundConn(remoteIP); err != nil {
-			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
+			srv.log.Error("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
 			fd.Close()
 			slots <- struct{}{}
 			continue
@@ -917,7 +918,8 @@ func (srv *Server) listenLoop() {
 			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr())
 		}
 		gopool.Submit(func() {
-			srv.SetupConn(fd, inboundConn, nil)
+			err := srv.SetupConn(fd, inboundConn, nil)
+			log.Info("SetupConn", "conn", fd.RemoteAddr(), "err", err)
 			slots <- struct{}{}
 		})
 	}

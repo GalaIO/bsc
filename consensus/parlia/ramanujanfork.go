@@ -1,6 +1,7 @@
 package parlia
 
 import (
+	"github.com/ethereum/go-ethereum/log"
 	"math/rand"
 	"time"
 
@@ -37,6 +38,8 @@ func (p *Parlia) blockTimeForRamanujanFork(snap *Snapshot, header, parent *types
 func (p *Parlia) blockTimeVerifyForRamanujanFork(snap *Snapshot, header, parent *types.Header) error {
 	if p.chainConfig.IsRamanujan(header.Number) {
 		if header.Time < parent.Time+p.config.Period+backOffTime(snap, header.Coinbase) {
+			suppose := snap.supposeValidator()
+			log.Warn("block not for you, please wait next", "block", header.Number.Uint64(), "hash", header.Hash(), "miner", header.Coinbase, "would be", suppose)
 			return consensus.ErrFutureBlock
 		}
 	}

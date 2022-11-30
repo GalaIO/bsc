@@ -18,6 +18,7 @@ package eth
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -66,7 +67,13 @@ func (h *ethHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 		return h.handleBlockAnnounces(peer, hashes, numbers)
 
 	case *eth.NewBlockPacket:
-		return h.handleBlockBroadcast(peer, packet.Block, packet.TD)
+		log.Info("recv NewBlockPacket", "block", packet.Block.Number(),
+			"hash", packet.Block.Hash(), "coin_base", packet.Block.Coinbase())
+		err := h.handleBlockBroadcast(peer, packet.Block, packet.TD)
+		if err != nil {
+			log.Error("recv NewBlockPacket", "err", err)
+		}
+		return err
 
 	case *eth.NewPooledTransactionHashesPacket:
 		return h.txFetcher.Notify(peer.ID(), *packet)

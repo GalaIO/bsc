@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -25,6 +26,12 @@ func TestImpactOfValidatorOutOfService(t *testing.T) {
 	for _, tc := range testCases {
 		simulateValidatorOutOfService(tc.totalValidators, tc.downValidators)
 	}
+}
+
+func TestTimeSub(t *testing.T) {
+	now := time.Unix(int64(1668422382), 0)
+	t.Log(time.Unix(int64(1668422384), 0).Sub(now))
+	t.Log(now.Sub(time.Unix(int64(1668422384), 0)))
 }
 
 func simulateValidatorOutOfService(totalValidators int, downValidators int) {

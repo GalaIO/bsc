@@ -399,6 +399,7 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 	if err != nil {
 		return err
 	}
+	log.Info("header verify", "header", header.Number, "hash", header.Hash(), "miner", header.Coinbase, "inturn", header.Difficulty, "suppose", snap.supposeValidator(), "validators", snap.validators())
 
 	err = p.blockTimeVerifyForRamanujanFork(snap, header, parent)
 	if err != nil {
@@ -894,6 +895,7 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 
 		select {
 		case results <- block.WithSeal(header):
+			log.Info("finally send block", "block", header.Number, "hash", header.Hash())
 		default:
 			log.Warn("Sealing result is not read by miner", "sealhash", SealHash(header, p.chainConfig.ChainID))
 		}

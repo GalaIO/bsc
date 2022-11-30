@@ -655,6 +655,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 				// difflayer should send before block
 				peer.diffExt.SendDiffLayers([]rlp.RawValue{diff})
 			}
+			log.Info("send msg to", "peer", peer)
 			peer.AsyncSendNewBlock(block, td)
 		}
 
