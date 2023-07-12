@@ -51,6 +51,20 @@ var (
 	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
 	emptyAddr = crypto.Keccak256Hash(common.Address{}.Bytes())
+
+	// metrics
+	accountMeter          = metrics.NewRegisteredMeter("state/db/account", nil)
+	accountOriginHitMeter = metrics.NewRegisteredMeter("state/db/account/origin", nil)
+	accountSnapHitMeter   = metrics.NewRegisteredMeter("state/db/account/snap", nil)
+	accountTrieHitMeter   = metrics.NewRegisteredMeter("state/db/account/trie", nil)
+
+	storageMeter           = metrics.NewRegisteredMeter("state/db/storage", nil)
+	storageDirtyHitMeter   = metrics.NewRegisteredMeter("state/db/storage/dirty", nil)
+	storagePendingHitMeter = metrics.NewRegisteredMeter("state/db/storage/pending", nil)
+	storageOriginHitMeter  = metrics.NewRegisteredMeter("state/db/storage/origin", nil)
+	storageShareHitMeter   = metrics.NewRegisteredMeter("state/db/storage/share", nil)
+	storageSnapHitMeter    = metrics.NewRegisteredMeter("state/db/storage/snap", nil)
+	storageTrieHitMeter    = metrics.NewRegisteredMeter("state/db/storage/trie", nil)
 )
 
 type proofList [][]byte
@@ -679,8 +693,10 @@ func (s *StateDB) getStateObject(addr common.Address) *StateObject {
 // flag set. This is needed by the state journal to revert to the correct s-
 // destructed object instead of wiping all knowledge about the state object.
 func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
+	accountMeter.Mark(1)
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
+		accountOriginHitMeter.Mark(1)
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -692,6 +708,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 			s.SnapshotAccountReads += time.Since(start)
 		}
 		if err == nil {
+			accountSnapHitMeter.Mark(1)
 			if acc == nil {
 				return nil
 			}
@@ -729,6 +746,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 			s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
 			return nil
 		}
+		accountTrieHitMeter.Mark(1)
 		if len(enc) == 0 {
 			return nil
 		}

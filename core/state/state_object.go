@@ -192,6 +192,8 @@ func (s *StateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
+		storageMeter.Mark(1)
+		storageDirtyHitMeter.Mark(1)
 		return value
 	}
 	// Otherwise return the entry's original value
@@ -200,6 +202,7 @@ func (s *StateObject) GetState(db Database, key common.Hash) common.Hash {
 
 func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 	if value, cached := s.originStorage[key]; cached {
+		storageOriginHitMeter.Mark(1)
 		return value, true
 	}
 	// if L1 cache miss, try to get it from shared pool
@@ -210,6 +213,7 @@ func (s *StateObject) getOriginStorage(key common.Hash) (common.Hash, bool) {
 		}
 		storage := val.(common.Hash)
 		s.originStorage[key] = storage
+		storageShareHitMeter.Mark(1)
 		return storage, true
 	}
 	return common.Hash{}, false
@@ -224,12 +228,14 @@ func (s *StateObject) setOriginStorage(key common.Hash, value common.Hash) {
 
 // GetCommittedState retrieves a value from the committed account storage trie.
 func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
+	storageMeter.Mark(1)
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
 	}
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
+		storagePendingHitMeter.Mark(1)
 		return value
 	}
 
@@ -256,6 +262,9 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		if metrics.EnabledExpensive {
 			s.db.SnapshotStorageReads += time.Since(start)
 		}
+		if err == nil {
+			storageSnapHitMeter.Mark(1)
+		}
 	}
 
 	// If snapshot unavailable or reading from it failed, load from the database
@@ -272,6 +281,7 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Has
 			s.setError(err)
 			return common.Hash{}
 		}
+		storageTrieHitMeter.Mark(1)
 	}
 	var value common.Hash
 	if len(enc) > 0 {
