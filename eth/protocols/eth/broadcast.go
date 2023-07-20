@@ -152,7 +152,7 @@ func (p *Peer) announceTransactions() {
 	)
 	for {
 		// If there's no in-flight announce running, check if a new one is needed
-		if done == nil && len(queue) > 0 {
+		if done == nil && (len(queue)*common.HashLength >= minTxPacketSize || time.Since(lastSend) >= txPacketTimeout) {
 			// Pile transaction hashes until we reach our allowed network limit
 			var (
 				count   int
@@ -165,25 +165,23 @@ func (p *Peer) announceTransactions() {
 					size += common.HashLength
 				}
 			}
-			if size >= minTxPacketSize || time.Since(lastSend) >= txPacketTimeout {
-				// Shift and trim queue
-				queue = queue[:copy(queue, queue[count:])]
+			// Shift and trim queue
+			queue = queue[:copy(queue, queue[count:])]
 
-				// If there's anything available to transfer, fire up an async writer
-				if len(pending) > 0 {
-					done = make(chan struct{})
-					gopool.Submit(func() {
-						broadcastHashMeter.Mark(int64(len(pending)))
-						if err := p.sendPooledTransactionHashes(pending); err != nil {
-							fail <- err
-							return
-						}
-						close(done)
-						//p.Log().Trace("Sent transaction announcements", "count", len(pending))
-					})
-				}
-				lastSend = time.Now()
+			// If there's anything available to transfer, fire up an async writer
+			if len(pending) > 0 {
+				done = make(chan struct{})
+				gopool.Submit(func() {
+					broadcastHashMeter.Mark(int64(len(pending)))
+					if err := p.sendPooledTransactionHashes(pending); err != nil {
+						fail <- err
+						return
+					}
+					close(done)
+					//p.Log().Trace("Sent transaction announcements", "count", len(pending))
+				})
 			}
+			lastSend = time.Now()
 		}
 		// Transfer goroutine may or may not have been started, listen for events
 		select {
