@@ -17,10 +17,12 @@
 package eth
 
 import (
+	"github.com/ethereum/go-ethereum/common/gopool"
+	"github.com/ethereum/go-ethereum/metrics"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/gopool"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -28,6 +30,12 @@ const (
 	// This is the target size for the packs of transactions or announcements. A
 	// pack can get larger than this if a single transactions exceeds this size.
 	maxTxPacketSize = 100 * 1024
+	minTxPacketSize = 1 * 1024
+	txPacketTimeout = 500 * time.Millisecond
+)
+
+var (
+	broadcastHashMeter = metrics.GetOrRegisterMeter("eth/protocols/eth/broadcasthash", nil)
 )
 
 // blockPropagation is a block propagation event, waiting for its turn in the
@@ -136,10 +144,11 @@ func (p *Peer) broadcastTransactions() {
 // node internals and at the same time rate limits queued data.
 func (p *Peer) announceTransactions() {
 	var (
-		queue  []common.Hash         // Queue of hashes to announce as transaction stubs
-		done   chan struct{}         // Non-nil if background announcer is running
-		fail   = make(chan error, 1) // Channel used to receive network error
-		failed bool                  // Flag whether a send failed, discard everything onward
+		queue    []common.Hash         // Queue of hashes to announce as transaction stubs
+		done     chan struct{}         // Non-nil if background announcer is running
+		fail     = make(chan error, 1) // Channel used to receive network error
+		failed   bool                  // Flag whether a send failed, discard everything onward
+		lastSend = time.Now()
 	)
 	for {
 		// If there's no in-flight announce running, check if a new one is needed
@@ -156,20 +165,24 @@ func (p *Peer) announceTransactions() {
 					size += common.HashLength
 				}
 			}
-			// Shift and trim queue
-			queue = queue[:copy(queue, queue[count:])]
+			if size >= minTxPacketSize || time.Since(lastSend) >= txPacketTimeout {
+				// Shift and trim queue
+				queue = queue[:copy(queue, queue[count:])]
 
-			// If there's anything available to transfer, fire up an async writer
-			if len(pending) > 0 {
-				done = make(chan struct{})
-				gopool.Submit(func() {
-					if err := p.sendPooledTransactionHashes(pending); err != nil {
-						fail <- err
-						return
-					}
-					close(done)
-					//p.Log().Trace("Sent transaction announcements", "count", len(pending))
-				})
+				// If there's anything available to transfer, fire up an async writer
+				if len(pending) > 0 {
+					done = make(chan struct{})
+					gopool.Submit(func() {
+						broadcastHashMeter.Mark(int64(len(pending)))
+						if err := p.sendPooledTransactionHashes(pending); err != nil {
+							fail <- err
+							return
+						}
+						close(done)
+						//p.Log().Trace("Sent transaction announcements", "count", len(pending))
+					})
+				}
+				lastSend = time.Now()
 			}
 		}
 		// Transfer goroutine may or may not have been started, listen for events

@@ -64,6 +64,7 @@ const (
 var (
 	syncChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the sync progress challenge
 	broadcastTxMeter     = metrics.GetOrRegisterMeter("eth/handler/broadcasttx", nil)
+	broadcastTxHashMeter = metrics.GetOrRegisterMeter("eth/handler/broadcasttxhash", nil)
 	reannoTxMeter        = metrics.GetOrRegisterMeter("eth/handler/reannotx", nil)
 	minedBlkMeter        = metrics.GetOrRegisterMeter("eth/handler/minedblk", nil)
 )
@@ -843,12 +844,13 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 	for peer, hashes := range txset {
 		directPeers++
 		directCount += len(hashes)
+		broadcastTxMeter.Mark(1)
 		peer.AsyncSendTransactions(hashes)
 	}
 	for peer, hashes := range annos {
 		annoPeers++
 		annoCount += len(hashes)
-		broadcastTxMeter.Mark(1)
+		broadcastTxHashMeter.Mark(1)
 		peer.AsyncSendPooledTransactionHashes(hashes)
 	}
 	log.Debug("Transaction broadcast", "txs", len(txs),
