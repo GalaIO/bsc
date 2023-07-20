@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"github.com/ethereum/go-ethereum/metrics"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -32,6 +33,11 @@ import (
 const (
 	forceSyncCycle      = 10 * time.Second // Time interval to force syncs, even if few peers are available
 	defaultMinSyncPeers = 5                // Amount of peers desired to start syncing
+)
+
+var (
+	syncTxMeter  = metrics.GetOrRegisterMeter("eth/sync/synctx", nil)
+	syncBlkMeter = metrics.GetOrRegisterMeter("eth/sync/syncblk", nil)
 )
 
 // syncTransactions starts sending all currently pending transactions to the given peer.
@@ -57,6 +63,7 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 	for i, tx := range txs {
 		hashes[i] = tx.Hash()
 	}
+	syncTxMeter.Mark(1)
 	p.AsyncSendPooledTransactionHashes(hashes)
 }
 
@@ -266,6 +273,7 @@ func (h *handler) doSync(op *chainSyncOp) error {
 		// degenerate connectivity, but it should be healthy for the mainnet too to
 		// more reliably update peers or the local TD state.
 		h.BroadcastBlock(head, false)
+		syncBlkMeter.Mark(1)
 	}
 	return nil
 }

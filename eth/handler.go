@@ -18,6 +18,7 @@ package eth
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/metrics"
 	"math"
 	"math/big"
 	"strings"
@@ -62,6 +63,9 @@ const (
 
 var (
 	syncChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the sync progress challenge
+	broadcastTxMeter     = metrics.GetOrRegisterMeter("eth/handler/broadcasttx", nil)
+	reannoTxMeter        = metrics.GetOrRegisterMeter("eth/handler/reannotx", nil)
+	minedBlkMeter        = metrics.GetOrRegisterMeter("eth/handler/minedblk", nil)
 )
 
 // txPool defines the methods needed from a transaction pool implementation to
@@ -844,6 +848,7 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 	for peer, hashes := range annos {
 		annoPeers++
 		annoCount += len(hashes)
+		broadcastTxMeter.Mark(1)
 		peer.AsyncSendPooledTransactionHashes(hashes)
 	}
 	log.Debug("Transaction broadcast", "txs", len(txs),
@@ -863,6 +868,7 @@ func (h *handler) ReannounceTransactions(txs types.Transactions) {
 	peersCount := uint(math.Sqrt(float64(h.peers.len())))
 	peers := h.peers.headPeers(peersCount)
 	for _, peer := range peers {
+		reannoTxMeter.Mark(1)
 		peer.AsyncSendPooledTransactionHashes(hashes)
 	}
 	log.Debug("Transaction reannounce", "txs", len(txs),
@@ -906,6 +912,7 @@ func (h *handler) minedBroadcastLoop() {
 
 	for obj := range h.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
+			minedBlkMeter.Mark(1)
 			h.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			h.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}

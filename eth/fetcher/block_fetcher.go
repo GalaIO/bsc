@@ -66,6 +66,8 @@ var (
 	headerFilterOutMeter = metrics.NewRegisteredMeter("eth/fetcher/block/filter/headers/out", nil)
 	bodyFilterInMeter    = metrics.NewRegisteredMeter("eth/fetcher/block/filter/bodies/in", nil)
 	bodyFilterOutMeter   = metrics.NewRegisteredMeter("eth/fetcher/block/filter/bodies/out", nil)
+
+	importBroadcastBlkMeter = metrics.GetOrRegisterMeter("eth/fetcher/importbroadcastblk", nil)
 )
 
 var errTerminated = errors.New("terminated")
@@ -900,6 +902,7 @@ func (f *BlockFetcher) importBlocks(op *blockOrHeaderInject) {
 		case nil:
 			// All ok, quickly propagate to our peers
 			blockBroadcastOutTimer.UpdateSince(block.ReceivedAt)
+			importBroadcastBlkMeter.Mark(1)
 			go f.broadcastBlock(block, true)
 
 		case consensus.ErrFutureBlock:
