@@ -156,10 +156,12 @@ type StateDB struct {
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
 
-	AccountReadsCount   int64
-	StorageReadsCount   int64
-	AccountUpdatesCount int64
-	StorageUpdatesCount int64
+	AccountReadsCount         int64
+	StorageReadsCount         int64
+	SnapshotAccountReadsCount int64
+	SnapshotStorageReadsCount int64
+	AccountUpdatesCount       int64
+	StorageUpdatesCount       int64
 
 	AccountUpdated int
 	StorageUpdated int
@@ -717,6 +719,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 		acc, err := s.snap.Account(crypto.HashData(s.hasher, addr.Bytes()))
 		if metrics.EnabledExpensive {
 			s.SnapshotAccountReads += time.Since(start)
+			s.SnapshotAccountReadsCount++
 		}
 		if err == nil {
 			accountSnapHitMeter.Mark(1)

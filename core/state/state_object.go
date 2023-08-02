@@ -261,6 +261,7 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
 		if metrics.EnabledExpensive {
 			s.db.SnapshotStorageReads += time.Since(start)
+			s.db.SnapshotStorageReadsCount++
 		}
 		if err == nil {
 			storageSnapHitMeter.Mark(1)
