@@ -156,6 +156,11 @@ type StateDB struct {
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
 
+	AccountReadsCount   int64
+	StorageReadsCount   int64
+	AccountUpdatesCount int64
+	StorageUpdatesCount int64
+
 	AccountUpdated int
 	StorageUpdated int
 	AccountDeleted int
@@ -653,7 +658,10 @@ func (s *StateDB) updateStateObject(obj *StateObject) {
 	}
 	// Track the amount of time wasted on updating the account from the trie
 	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.AccountUpdates += time.Since(start) }(time.Now())
+		defer func(start time.Time) {
+			s.AccountUpdates += time.Since(start)
+			s.AccountUpdatesCount++
+		}(time.Now())
 	}
 	// Encode the account and update the account trie
 	addr := obj.Address()
@@ -669,7 +677,10 @@ func (s *StateDB) deleteStateObject(obj *StateObject) {
 	}
 	// Track the amount of time wasted on deleting the account from the trie
 	if metrics.EnabledExpensive {
-		defer func(start time.Time) { s.AccountUpdates += time.Since(start) }(time.Now())
+		defer func(start time.Time) {
+			s.AccountUpdates += time.Since(start)
+			s.AccountUpdatesCount++
+		}(time.Now())
 	}
 	// Delete the account from the trie
 	addr := obj.Address()
@@ -741,6 +752,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *StateObject {
 		enc, err := s.trie.TryGet(addr.Bytes())
 		if metrics.EnabledExpensive {
 			s.AccountReads += time.Since(start)
+			s.AccountReadsCount++
 		}
 		if err != nil {
 			s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))

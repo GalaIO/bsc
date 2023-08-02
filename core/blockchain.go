@@ -73,6 +73,11 @@ var (
 	snapshotStorageReadTimer = metrics.NewRegisteredTimer("chain/snapshot/storage/reads", nil)
 	snapshotCommitTimer      = metrics.NewRegisteredTimer("chain/snapshot/commits", nil)
 
+	accountReadsCounter   = metrics.NewRegisteredGauge("chain/account/reads/count", nil)
+	storageReadsCounter   = metrics.NewRegisteredGauge("chain/storage/reads/count", nil)
+	accountUpdatesCounter = metrics.NewRegisteredGauge("chain/account/updates/count", nil)
+	storageUpdatesCounter = metrics.NewRegisteredGauge("chain/storage/updates/count", nil)
+
 	blockInsertTimer     = metrics.NewRegisteredTimer("chain/inserts", nil)
 	blockValidationTimer = metrics.NewRegisteredTimer("chain/validation", nil)
 	blockExecutionTimer  = metrics.NewRegisteredTimer("chain/execution", nil)
@@ -1978,6 +1983,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete, we can mark them
 		snapshotAccountReadTimer.Update(statedb.SnapshotAccountReads) // Account reads are complete, we can mark them
 		snapshotStorageReadTimer.Update(statedb.SnapshotStorageReads) // Storage reads are complete, we can mark them
+		accountReadsCounter.Update(statedb.AccountReadsCount)
+		storageReadsCounter.Update(statedb.StorageReadsCount)
 
 		processGasMeter.Mark(int64(usedGas))
 		blockExecutionTimer.Update(time.Since(substart))
@@ -2001,6 +2008,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		storageHashTimer.Update(statedb.StorageHashes)    // Storage hashes are complete, we can mark them
 		accountUpdateTimer.Update(statedb.AccountUpdates) // Account updates are complete, we can mark them
 		storageUpdateTimer.Update(statedb.StorageUpdates) // Storage updates are complete, we can mark them
+		accountUpdatesCounter.Update(statedb.AccountUpdatesCount)
+		storageUpdatesCounter.Update(statedb.StorageUpdatesCount)
 
 		blockValidationTimer.Update(time.Since(substart))
 

@@ -276,6 +276,7 @@ func (s *StateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		enc, err = s.getTrie(db).TryGet(key.Bytes())
 		if metrics.EnabledExpensive {
 			s.db.StorageReads += time.Since(start)
+			s.db.StorageReadsCount++
 		}
 		if err != nil {
 			s.setError(err)
@@ -366,19 +367,21 @@ func (s *StateObject) updateTrie(db Database) Trie {
 	if len(s.pendingStorage) == 0 {
 		return s.trie
 	}
+	usedStorage := make([][]byte, 0, len(s.pendingStorage))
+	dirtyStorage := make(map[common.Hash][]byte)
+
 	// Track the amount of time wasted on updating the storage trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) {
 			s.db.MetricsMux.Lock()
 			s.db.StorageUpdates += time.Since(start)
+			s.db.StorageUpdatesCount += int64(len(dirtyStorage))
 			s.db.MetricsMux.Unlock()
 		}(time.Now())
 	}
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
 
-	usedStorage := make([][]byte, 0, len(s.pendingStorage))
-	dirtyStorage := make(map[common.Hash][]byte)
 	for key, value := range s.pendingStorage {
 		// Skip noop changes, persist actual changes
 		if value == s.originStorage[key] {
