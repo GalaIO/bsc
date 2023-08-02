@@ -73,10 +73,10 @@ var (
 	snapshotStorageReadTimer = metrics.NewRegisteredTimer("chain/snapshot/storage/reads", nil)
 	snapshotCommitTimer      = metrics.NewRegisteredTimer("chain/snapshot/commits", nil)
 
-	accountReadsCounter   = metrics.NewRegisteredGauge("chain/account/reads/count", nil)
-	storageReadsCounter   = metrics.NewRegisteredGauge("chain/storage/reads/count", nil)
-	accountUpdatesCounter = metrics.NewRegisteredGauge("chain/account/updates/count", nil)
-	storageUpdatesCounter = metrics.NewRegisteredGauge("chain/storage/updates/count", nil)
+	accountReadsCounter   = metrics.NewRegisteredGauge("chain/account/reads/cnt", nil)
+	storageReadsCounter   = metrics.NewRegisteredGauge("chain/storage/reads/cnt", nil)
+	accountUpdatesCounter = metrics.NewRegisteredGauge("chain/account/updates/cnt", nil)
+	storageUpdatesCounter = metrics.NewRegisteredGauge("chain/storage/updates/cnt", nil)
 
 	blockInsertTimer     = metrics.NewRegisteredTimer("chain/inserts", nil)
 	blockValidationTimer = metrics.NewRegisteredTimer("chain/validation", nil)
