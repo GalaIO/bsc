@@ -299,6 +299,7 @@ func (db *Database) meter(refresh time.Duration) {
 			merr = err
 			continue
 		}
+		log.Info("leveldb msg", "stats", stats)
 		// Find the compaction table, skip the header
 		lines := strings.Split(stats, "\n")
 		for len(lines) > 0 && strings.TrimSpace(lines[0]) != "Compactions" {
@@ -350,6 +351,7 @@ func (db *Database) meter(refresh time.Duration) {
 			merr = err
 			continue
 		}
+		log.Info("leveldb msg", "writedelay", writedelay)
 		var (
 			delayN        int64
 			delayDuration string
@@ -389,6 +391,7 @@ func (db *Database) meter(refresh time.Duration) {
 			merr = err
 			continue
 		}
+		log.Info("leveldb msg", "iostats", iostats)
 		var nRead, nWrite float64
 		parts := strings.Split(ioStats, " ")
 		if len(parts) < 2 {
@@ -420,6 +423,7 @@ func (db *Database) meter(refresh time.Duration) {
 			merr = err
 			continue
 		}
+		log.Info("leveldb msg", "compCount", compCount)
 
 		var (
 			memComp       uint32
