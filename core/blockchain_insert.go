@@ -61,7 +61,7 @@ func (st *insertStats) report(chain []*types.Block, index int, dirty common.Stor
 			"elapsed", common.PrettyDuration(elapsed), "mgasps", mgasps,
 			"number", end.Number(), "hash", end.Hash(),
 		}
-		processGasGauge.Update(int64(mgasps))
+		processGasGauge.Update(time.Duration(mgasps))
 		if timestamp := time.Unix(int64(end.Time()), 0); time.Since(timestamp) > time.Minute {
 			context = append(context, []interface{}{"age", common.PrettyAge(timestamp)}...)
 		}
