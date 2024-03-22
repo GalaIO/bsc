@@ -781,7 +781,10 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	validate := func(index int, header *types.Header) error {
+	validate := func(index int, header *types.Header) (err error) {
+		defer func() {
+			log.Error("received bad block from peer", "peer", id, "err", err)
+		}()
 		if txListHashes[index] != header.TxHash {
 			return errInvalidBody
 		}

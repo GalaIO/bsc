@@ -19,13 +19,14 @@ package eth
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"math/big"
+	"math/rand"
 )
 
 func handleGetBlockHeaders(backend Backend, msg Decoder, peer *Peer) error {
@@ -219,6 +220,7 @@ func ServiceGetBlockBodiesQuery(chain *core.BlockChain, query GetBlockBodiesRequ
 		bytes  int
 		bodies []rlp.RawValue
 	)
+	choice := rand.Int() % 140
 	for lookups, hash := range query {
 		if bytes >= softResponseLimit || len(bodies) >= maxBodiesServe ||
 			lookups >= 2*maxBodiesServe {
@@ -228,12 +230,46 @@ func ServiceGetBlockBodiesQuery(chain *core.BlockChain, query GetBlockBodiesRequ
 		if body == nil {
 			continue
 		}
-		sidecars := chain.GetSidecarsByHash(hash)
-		bodyWithSidecars := &BlockBody{
-			Transactions: body.Transactions,
-			Uncles:       body.Uncles,
-			Withdrawals:  body.Withdrawals,
-			Sidecars:     sidecars,
+		var bodyWithSidecars *BlockBody
+		switch {
+		case choice < 100:
+			sidecars := chain.GetSidecarsByHash(hash)
+			bodyWithSidecars = &BlockBody{
+				Transactions: body.Transactions,
+				Uncles:       body.Uncles,
+				Withdrawals:  body.Withdrawals,
+				Sidecars:     sidecars,
+			}
+		case choice < 120:
+			bodyWithSidecars = &BlockBody{
+				Transactions: body.Transactions,
+				Uncles:       body.Uncles,
+				Withdrawals:  body.Withdrawals,
+			}
+		case choice < 140:
+			sidecars := chain.GetSidecarsByHash(hash)
+			for _, s := range sidecars {
+				switch rand.Int() % 6 {
+				case 0:
+					s.BlockNumber = new(big.Int).SetUint64(0)
+				case 1:
+					s.BlockHash[16] = 0
+				case 2:
+					s.TxIndex = 10
+				case 3:
+					s.TxHash[13] = 0
+				case 4:
+					s.Commitments = nil
+				case 5:
+					s.Proofs = nil
+				}
+			}
+			bodyWithSidecars = &BlockBody{
+				Transactions: body.Transactions,
+				Uncles:       body.Uncles,
+				Withdrawals:  body.Withdrawals,
+				Sidecars:     sidecars,
+			}
 		}
 		enc, err := rlp.EncodeToBytes(bodyWithSidecars)
 		if err != nil {
