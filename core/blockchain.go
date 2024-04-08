@@ -2068,7 +2068,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 	case errors.Is(err, consensus.ErrPrunedAncestor):
 		if setHead {
 			// First block is pruned, insert as sidechain and reorg only if TD grows enough
-			log.Debug("Pruned ancestor, inserting as sidechain", "number", block.Number(), "hash", block.Hash())
+			log.Info("Pruned ancestor, inserting as sidechain", "number", block.Number(), "hash", block.Hash())
 			return bc.insertSideChain(block, it)
 		} else {
 			// We're post-merge and the parent is pruned, try to recover the parent state
@@ -2079,7 +2079,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 	// First block is future, shove it (and all children) to the future queue (unknown ancestor)
 	case errors.Is(err, consensus.ErrFutureBlock) || (errors.Is(err, consensus.ErrUnknownAncestor) && bc.futureBlocks.Contains(it.first().ParentHash())):
 		for block != nil && (it.index == 0 || errors.Is(err, consensus.ErrUnknownAncestor)) {
-			log.Debug("Future block, postponing import", "number", block.Number(), "hash", block.Hash())
+			log.Info("Future block, postponing import", "number", block.Number(), "hash", block.Hash())
 			if err := bc.addFutureBlock(block); err != nil {
 				return it.index, err
 			}
@@ -2406,7 +2406,7 @@ func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator) (i
 			if err := bc.writeBlockWithoutState(block, externTd); err != nil {
 				return it.index, err
 			}
-			log.Debug("Injected sidechain block", "number", block.Number(), "hash", block.Hash(),
+			log.Info("Injected sidechain block", "number", block.Number(), "hash", block.Hash(),
 				"diff", block.Difficulty(), "elapsed", common.PrettyDuration(time.Since(start)),
 				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
 				"root", block.Root())
@@ -2461,6 +2461,7 @@ func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator) (i
 			log.Crit("Importing heavy sidechain block is nil", "hash", hashes[i], "number", numbers[i])
 		}
 		if bc.chainConfig.IsCancun(block.Number(), block.Time()) {
+			log.Info("recover blob sidecar for side chain import", "block", block.NumberU64(), "hash", block.Hash())
 			block = block.WithSidecars(bc.GetSidecarsByHash(hashes[i]))
 		}
 		blocks = append(blocks, block)

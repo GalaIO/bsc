@@ -17,7 +17,10 @@
 package eth
 
 import (
+	"github.com/ethereum/go-ethereum/params"
 	"math/big"
+	"math/rand"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/gopool"
@@ -44,12 +47,34 @@ func (p *Peer) broadcastBlocks() {
 	for {
 		select {
 		case prop := <-p.queuedBlocks:
+			if params.EnableMockBroadcastNewBlockDelay {
+				switch rand.Int() % 4 {
+				case 0:
+					time.Sleep(100 * time.Millisecond)
+				case 1:
+					time.Sleep(300 * time.Millisecond)
+				case 2:
+					time.Sleep(1000 * time.Millisecond)
+				default:
+				}
+			}
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
 				return
 			}
 			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td, "sidecars", len(prop.block.Sidecars()))
 
 		case block := <-p.queuedBlockAnns:
+			if params.EnableMockBroadcastNewBlockDelay {
+				switch rand.Int() % 4 {
+				case 0:
+					time.Sleep(100 * time.Millisecond)
+				case 1:
+					time.Sleep(300 * time.Millisecond)
+				case 2:
+					time.Sleep(1000 * time.Millisecond)
+				default:
+				}
+			}
 			if err := p.SendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
 				return
 			}

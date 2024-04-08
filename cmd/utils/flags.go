@@ -1126,6 +1126,18 @@ Please note that --` + MetricsHTTPFlag.Name + ` must be set to start the server.
 		Value:    params.DefaultExtraReserveForBlobRequests,
 		Category: flags.MiscCategory,
 	}
+
+	//mock flags
+	EnableMockBadBlobSidecar = &cli.BoolFlag{
+		Name:  "mock.blobsidecar",
+		Usage: "mock corner cases",
+		Value: false,
+	}
+	EnableMockBroadcastNewBlockDelay = &cli.BoolFlag{
+		Name:  "mock.broadcastnewblockdelay",
+		Usage: "mock corner cases",
+		Value: false,
+	}
 )
 
 var (
@@ -2170,6 +2182,14 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 			extraReserve = params.DefaultExtraReserveForBlobRequests
 		}
 		cfg.BlobExtraReserve = extraReserve
+	}
+
+	// mock setting
+	if ctx.IsSet(EnableMockBadBlobSidecar.Name) {
+		params.EnableMockBadBlobSidecar = ctx.Bool(EnableMockBadBlobSidecar.Name)
+	}
+	if ctx.IsSet(EnableMockBroadcastNewBlockDelay.Name) {
+		params.EnableMockBroadcastNewBlockDelay = ctx.Bool(EnableMockBroadcastNewBlockDelay.Name)
 	}
 }
 

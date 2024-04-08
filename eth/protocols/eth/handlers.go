@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 	"math/big"
@@ -220,7 +221,6 @@ func ServiceGetBlockBodiesQuery(chain *core.BlockChain, query GetBlockBodiesRequ
 		bytes  int
 		bodies []rlp.RawValue
 	)
-	choice := rand.Int() % 140
 	for lookups, hash := range query {
 		if bytes >= softResponseLimit || len(bodies) >= maxBodiesServe ||
 			lookups >= 2*maxBodiesServe {
@@ -231,8 +231,7 @@ func ServiceGetBlockBodiesQuery(chain *core.BlockChain, query GetBlockBodiesRequ
 			continue
 		}
 		var bodyWithSidecars *BlockBody
-		switch {
-		case choice < 100:
+		if !params.EnableMockBadBlobSidecar {
 			sidecars := chain.GetSidecarsByHash(hash)
 			bodyWithSidecars = &BlockBody{
 				Transactions: body.Transactions,
@@ -240,35 +239,47 @@ func ServiceGetBlockBodiesQuery(chain *core.BlockChain, query GetBlockBodiesRequ
 				Withdrawals:  body.Withdrawals,
 				Sidecars:     sidecars,
 			}
-		case choice < 120:
-			bodyWithSidecars = &BlockBody{
-				Transactions: body.Transactions,
-				Uncles:       body.Uncles,
-				Withdrawals:  body.Withdrawals,
-			}
-		case choice < 140:
-			sidecars := chain.GetSidecarsByHash(hash)
-			for _, s := range sidecars {
-				switch rand.Int() % 6 {
-				case 0:
-					s.BlockNumber = new(big.Int).SetUint64(0)
-				case 1:
-					s.BlockHash[16] = 0
-				case 2:
-					s.TxIndex = 10
-				case 3:
-					s.TxHash[13] = 0
-				case 4:
-					s.Commitments = nil
-				case 5:
-					s.Proofs = nil
+		} else {
+			choice := rand.Int() % 140
+			switch {
+			case choice < 100:
+				sidecars := chain.GetSidecarsByHash(hash)
+				bodyWithSidecars = &BlockBody{
+					Transactions: body.Transactions,
+					Uncles:       body.Uncles,
+					Withdrawals:  body.Withdrawals,
+					Sidecars:     sidecars,
 				}
-			}
-			bodyWithSidecars = &BlockBody{
-				Transactions: body.Transactions,
-				Uncles:       body.Uncles,
-				Withdrawals:  body.Withdrawals,
-				Sidecars:     sidecars,
+			case choice < 120:
+				bodyWithSidecars = &BlockBody{
+					Transactions: body.Transactions,
+					Uncles:       body.Uncles,
+					Withdrawals:  body.Withdrawals,
+				}
+			case choice < 140:
+				sidecars := chain.GetSidecarsByHash(hash)
+				for _, s := range sidecars {
+					switch rand.Int() % 6 {
+					case 0:
+						s.BlockNumber = new(big.Int).SetUint64(0)
+					case 1:
+						s.BlockHash[16] = 0
+					case 2:
+						s.TxIndex = 10
+					case 3:
+						s.TxHash[13] = 0
+					case 4:
+						s.Commitments = nil
+					case 5:
+						s.Proofs = nil
+					}
+				}
+				bodyWithSidecars = &BlockBody{
+					Transactions: body.Transactions,
+					Uncles:       body.Uncles,
+					Withdrawals:  body.Withdrawals,
+					Sidecars:     sidecars,
+				}
 			}
 		}
 		enc, err := rlp.EncodeToBytes(bodyWithSidecars)

@@ -176,6 +176,8 @@ var (
 		utils.LogDebugFlag,
 		utils.LogBacktraceAtFlag,
 		utils.BlobExtraReserveFlag,
+		utils.EnableMockBadBlobSidecar,
+		utils.EnableMockBroadcastNewBlockDelay,
 	}, utils.NetworkFlags, utils.DatabaseFlags)
 
 	rpcFlags = []cli.Flag{
