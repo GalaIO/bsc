@@ -36,7 +36,7 @@ func handleGetBlockHeaders(backend Backend, msg Decoder, peer *Peer) error {
 	}
 	log.Debug("handleGetBlockHeaders start", "peer", peer.id, "msg", query)
 	response := ServiceGetBlockHeadersQuery(backend.Chain(), query.GetBlockHeadersRequest, peer)
-	log.Debug("handleGetBlockHeaders done", "peer", peer.id, "msg", query, "response", response)
+	log.Debug("handleGetBlockHeaders done", "peer", peer.id, "msg", query, "response", len(response))
 	return peer.ReplyBlockHeadersRLP(query.RequestId, response)
 }
 
