@@ -553,6 +553,7 @@ func (hc *HeaderChain) GetHeadersFrom(number, count uint64) []rlp.RawValue {
 			count -= number - current
 			number = current
 		} else {
+			log.Info("GetHeadersFrom behind the request", "current", current, "number", number, "count", count)
 			return nil
 		}
 	}
@@ -560,6 +561,7 @@ func (hc *HeaderChain) GetHeadersFrom(number, count uint64) []rlp.RawValue {
 	// If we have some of the headers in cache already, use that before going to db.
 	hash := rawdb.ReadCanonicalHash(hc.chainDb, number)
 	if hash == (common.Hash{}) {
+		log.Info("GetHeadersFrom cannot find", "number", number, "count", count)
 		return nil
 	}
 	for count > 0 {

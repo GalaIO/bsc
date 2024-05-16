@@ -298,15 +298,18 @@ func ReadHeaderRange(db ethdb.Reader, number uint64, count uint64) []rlp.RawValu
 		count = number + 1
 	}
 	limit, _ := db.Ancients()
+	log.Info("ReadHeaderRange", "number", number, "count", count, "limit", limit)
 	// First read live blocks
 	if i >= limit {
 		// If we need to read live blocks, we need to figure out the hash first
 		hash := ReadCanonicalHash(db, number)
+		log.Info("ReadHeaderRange read from kvdb", "number", number, "hash", hash)
 		for ; i >= limit && count > 0; i-- {
 			if data, _ := db.BlockStoreReader().Get(headerKey(i, hash)); len(data) > 0 {
 				rlpHeaders = append(rlpHeaders, data)
 				// Get the parent hash for next query
 				hash = types.HeaderParentHashFromRLP(data)
+				log.Info("ReadHeaderRange read from kvdb", "number", number, "hash", hash)
 			} else {
 				break // Maybe got moved to ancients
 			}
@@ -318,6 +321,7 @@ func ReadHeaderRange(db ethdb.Reader, number uint64, count uint64) []rlp.RawValu
 	}
 	// read remaining from ancients, cap at 2M
 	data, err := db.AncientRange(ChainFreezerHeaderTable, i+1-count, count, 2*1024*1024)
+	log.Info("ReadHeaderRange from ancient", "number", number, "count", count, "limit", limit, "data", len(data))
 	if err != nil {
 		log.Error("Failed to read headers from freezer", "err", err)
 		return rlpHeaders
