@@ -1445,7 +1445,7 @@ func (bc *BlockChain) procFutureBlocks() {
 		})
 		// Insert one by one as chain insertion needs contiguous ancestry between blocks
 		for i := range blocks {
-			bc.InsertChain(blocks[i : i+1])
+			bc.InsertChain("", blocks[i:i+1])
 		}
 	}
 }
@@ -1985,7 +1985,7 @@ func (bc *BlockChain) addFutureBlock(block *types.Block) error {
 // chain or, otherwise, create a fork. If an error is returned it will return
 // the index number of the failing block as well an error describing what went
 // wrong. After insertion is done, all accumulated events will be fired.
-func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
+func (bc *BlockChain) InsertChain(id string, chain types.Blocks) (int, error) {
 	// Sanity check that we have something meaningful to import
 	if len(chain) == 0 {
 		return 0, nil
@@ -2013,7 +2013,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		return 0, errChainStopped
 	}
 	defer bc.chainmu.Unlock()
-	return bc.insertChain(chain, true)
+	return bc.insertChain(id, chain, true)
 }
 
 // insertChain is the internal implementation of InsertChain, which assumes that
@@ -2024,7 +2024,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // racey behaviour. If a sidechain import is in progress, and the historic state
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
-func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error) {
+func (bc *BlockChain) insertChain(id string, chain types.Blocks, setHead bool) (int, error) {
 	// If the chain is terminating, don't even bother starting up.
 	if bc.insertStopped() {
 		return 0, nil
@@ -2153,6 +2153,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 	case err != nil && !errors.Is(err, ErrKnownBlock):
 		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
+		log.Error("err block", "block", block.NumberU64(), "hash",
+			block.Hash(), "peer", id, "err", err, "block withdrawl", block.Withdrawals(), "sidecar", block.Sidecars())
 		bc.reportBlock(block, nil, err)
 		return it.index, err
 	}
@@ -2527,7 +2529,7 @@ func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator) (i
 		// memory here.
 		if len(blocks) >= 2048 || memory > 64*1024*1024 {
 			log.Info("Importing heavy sidechain segment", "blocks", len(blocks), "start", blocks[0].NumberU64(), "end", block.NumberU64())
-			if _, err := bc.insertChain(blocks, true); err != nil {
+			if _, err := bc.insertChain("", blocks, true); err != nil {
 				return 0, err
 			}
 			blocks, memory = blocks[:0], 0
@@ -2541,7 +2543,7 @@ func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator) (i
 	}
 	if len(blocks) > 0 {
 		log.Info("Importing sidechain segment", "start", blocks[0].NumberU64(), "end", blocks[len(blocks)-1].NumberU64())
-		return bc.insertChain(blocks, true)
+		return bc.insertChain("", blocks, true)
 	}
 	return 0, nil
 }
@@ -2593,7 +2595,7 @@ func (bc *BlockChain) recoverAncestors(block *types.Block) (common.Hash, error) 
 		if bc.chainConfig.IsCancun(b.Number(), b.Time()) {
 			b = b.WithSidecars(bc.GetSidecarsByHash(b.Hash()))
 		}
-		if _, err := bc.insertChain(types.Blocks{b}, false); err != nil {
+		if _, err := bc.insertChain("", types.Blocks{b}, false); err != nil {
 			return b.ParentHash(), err
 		}
 	}
@@ -2814,7 +2816,7 @@ func (bc *BlockChain) InsertBlockWithoutSetHead(block *types.Block) error {
 	}
 	defer bc.chainmu.Unlock()
 
-	_, err := bc.insertChain(types.Blocks{block}, false)
+	_, err := bc.insertChain("", types.Blocks{block}, false)
 	return err
 }
 

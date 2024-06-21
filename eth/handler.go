@@ -269,7 +269,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		}
 		return fblock.Number.Uint64()
 	}
-	inserter := func(blocks types.Blocks) (int, error) {
+	inserter := func(id string, blocks types.Blocks) (int, error) {
 		// All the block fetcher activities should be disabled
 		// after the transition. Print the warning log.
 		if h.merger.PoSFinalized() {
@@ -316,7 +316,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 			}
 			return 0, nil
 		}
-		return h.chain.InsertChain(blocks)
+		return h.chain.InsertChain(id, blocks)
 	}
 
 	broadcastBlockWithCheck := func(block *types.Block, propagate bool) {

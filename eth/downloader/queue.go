@@ -783,21 +783,26 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 
 	validate := func(index int, header *types.Header) error {
 		if txListHashes[index] != header.TxHash {
+			log.Error("DeliverBodies err1", "peer", id)
 			return errInvalidBody
 		}
 		if uncleListHashes[index] != header.UncleHash {
+			log.Error("DeliverBodies err2", "peer", id)
 			return errInvalidBody
 		}
 		if header.WithdrawalsHash == nil {
 			// nil hash means that withdrawals should not be present in body
 			if withdrawalLists[index] != nil {
+				log.Error("DeliverBodies err3", "peer", id)
 				return errInvalidBody
 			}
 		} else { // non-nil hash: body must have withdrawals
 			if withdrawalLists[index] == nil {
+				log.Error("DeliverBodies err4", "peer", id)
 				return errInvalidBody
 			}
 			if withdrawalListHashes[index] != *header.WithdrawalsHash {
+				log.Error("DeliverBodies err5", "peer", id)
 				return errInvalidBody
 			}
 		}
@@ -811,27 +816,33 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 			// Validate the data blobs individually too
 			if tx.Type() == types.BlobTxType {
 				if len(tx.BlobHashes()) == 0 {
+					log.Error("DeliverBodies err6", "peer", id)
 					return errInvalidBody
 				}
 				for _, hash := range tx.BlobHashes() {
 					if !kzg4844.IsValidVersionedHash(hash[:]) {
+						log.Error("DeliverBodies err7", "peer", id)
 						return errInvalidBody
 					}
 				}
 				if tx.BlobTxSidecar() != nil {
+					log.Error("DeliverBodies err8", "peer", id)
 					return errInvalidBody
 				}
 			}
 		}
 		if header.BlobGasUsed != nil {
 			if want := *header.BlobGasUsed / params.BlobTxBlobGasPerBlob; uint64(blobs) != want { // div because the header is surely good vs the body might be bloated
+				log.Error("DeliverBodies err9", "peer", id)
 				return errInvalidBody
 			}
 			if blobs > params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob {
+				log.Error("DeliverBodies err10", "peer", id)
 				return errInvalidBody
 			}
 		} else {
 			if blobs != 0 {
+				log.Error("DeliverBodies err11", "peer", id)
 				return errInvalidBody
 			}
 		}
@@ -839,6 +850,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 		// do some sanity check for sidecar
 		for _, sidecar := range sidecars[index] {
 			if err := sidecar.SanityCheck(header.Number, header.Hash()); err != nil {
+				log.Error("DeliverBodies err12", "peer", id, "err", err)
 				return err
 			}
 		}
