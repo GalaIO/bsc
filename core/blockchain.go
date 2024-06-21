@@ -2153,8 +2153,8 @@ func (bc *BlockChain) insertChain(id string, chain types.Blocks, setHead bool) (
 	case err != nil && !errors.Is(err, ErrKnownBlock):
 		bc.futureBlocks.Remove(block.Hash())
 		stats.ignored += len(it.chain)
-		log.Error("err block", "block", block.NumberU64(), "hash",
-			block.Hash(), "peer", id, "err", err, "block withdrawl", block.Withdrawals(), "sidecar", block.Sidecars())
+		log.Error("err block1", "block", block.NumberU64(), "hash",
+			block.Hash(), "peer", id, "err", err, "block withdrawl", block.Withdrawals(), "block withdrawl==nil", block.Withdrawals() == nil, "sidecar", block.Sidecars())
 		bc.reportBlock(block, nil, err)
 		return it.index, err
 	}
@@ -2167,8 +2167,8 @@ func (bc *BlockChain) insertChain(id string, chain types.Blocks, setHead bool) (
 		}
 		// If the header is a banned one, straight out abort
 		if BadHashes[block.Hash()] {
-			log.Error("err block", "block", block.NumberU64(), "hash",
-				block.Hash(), "peer", id, "err", err, "block withdrawl", block.Withdrawals(), "sidecar", block.Sidecars())
+			log.Error("err block2", "block", block.NumberU64(), "hash",
+				block.Hash(), "peer", id, "err", err, "block withdrawl", block.Withdrawals(), "block withdrawl==nil", block.Withdrawals() == nil, "sidecar", block.Sidecars())
 			bc.reportBlock(block, nil, ErrBannedHash)
 			return it.index, ErrBannedHash
 		}
