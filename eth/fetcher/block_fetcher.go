@@ -103,7 +103,7 @@ type chainFinalizedHeightFn func() uint64
 type headersInsertFn func(headers []*types.Header) (int, error)
 
 // chainInsertFn is a callback type to insert a batch of blocks into the local chain.
-type chainInsertFn func(types.Blocks) (int, error)
+type chainInsertFn func(string, types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
 type peerDropFn func(id string)
@@ -938,7 +938,7 @@ func (f *BlockFetcher) importBlocks(op *blockOrHeaderInject) {
 			return
 		}
 		// Run the actual import and log any issues
-		if _, err := f.insertChain(types.Blocks{block}); err != nil {
+		if _, err := f.insertChain(peer, types.Blocks{block}); err != nil {
 			if blockInsertFailRecords.Cardinality() < blockInsertFailRecordslimit {
 				blockInsertFailRecords.Add(block.Hash())
 				blockInsertFailGauge.Update(int64(blockInsertFailRecords.Cardinality()))
