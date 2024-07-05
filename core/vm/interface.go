@@ -79,6 +79,10 @@ type StateDB interface {
 
 	AddLog(*types.Log)
 	AddPreimage(common.Hash, []byte)
+
+	// parallel DAG related
+	BeforeTxTransition()
+	FinaliseRWSet() error
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

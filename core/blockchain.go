@@ -258,6 +258,7 @@ type BlockChain struct {
 	stateCache    state.Database                   // State database to reuse between imports (contains state cache)
 	triesInMemory uint64
 	txIndexer     *txIndexer // Transaction indexer, might be nil if not enabled
+	statedb       *state.StateDB
 
 	hc                  *HeaderChain
 	rmLogsFeed          event.Feed
@@ -2220,6 +2221,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 			return it.index, err
 		}
 		bc.updateHighestVerifiedHeader(block.Header())
+
+		// TODO(galaio): use txDAG in some accelerate scenarios.
+		if len(block.TxDAG()) > 0 {
+			txDAG, err := types.DecodeTxDAG(block.TxDAG())
+			if err != nil {
+				return it.index, err
+			}
+			log.Info("Insert chain", "block", block.NumberU64(), "txDAG", txDAG)
+		}
 
 		// Enable prefetching to pull in trie node paths while processing transactions
 		statedb.StartPrefetcher("chain")

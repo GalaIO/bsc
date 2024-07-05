@@ -88,6 +88,13 @@ func ValidateListsInBody(block *types.Block) error {
 		// Withdrawals are not allowed prior to shanghai fork
 		return errors.New("withdrawals present in block body")
 	}
+
+	// TODO(galaio): add more TxDAG hash when TxDAG in consensus, txDAG check here
+	if len(block.TxDAG()) > 0 {
+		if _, err := types.DecodeTxDAG(block.TxDAG()); err != nil {
+			return errors.New("wrong TxDAG in block body")
+		}
+	}
 	return nil
 }
 

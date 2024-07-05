@@ -1076,6 +1076,7 @@ func (w *worker) fillTransactions(interruptCh chan int32, env *environment, stop
 	filter.OnlyPlainTxs, filter.OnlyBlobTxs = false, true
 	pendingBlobTxs := w.eth.TxPool().Pending(filter)
 
+	env.state.ResetMVStates(0)
 	if bidTxs != nil {
 		filterBidTxs := func(commonTxs map[common.Address][]*txpool.LazyTransaction) {
 			for acc, txs := range commonTxs {
@@ -1423,6 +1424,19 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		env := env.copy()
 
 		block = block.WithSidecars(env.sidecars)
+
+		// Because the TxDAG appends after sidecar, so we only enable after cancun
+		if w.chainConfig.IsCancun(env.header.Number, env.header.Time) {
+			for i := len(env.txs); i < len(block.Transactions()); i++ {
+				env.state.RecordSystemTxRWSet(i)
+			}
+			txDAG, _ := env.state.MVStates2TxDAG()
+			rawTxDAG, err := types.EncodeTxDAG(txDAG)
+			if err != nil {
+				return err
+			}
+			block = block.WithTxDAG(rawTxDAG)
+		}
 
 		// If we're post merge, just ignore
 		if !w.isTTDReached(block.Header()) {

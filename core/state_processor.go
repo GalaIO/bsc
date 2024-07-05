@@ -19,8 +19,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -29,7 +27,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -99,16 +99,19 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// initialise bloom processors
 	bloomProcessors := NewAsyncReceiptBloomGenerator(txNum)
 	statedb.MarkFullProcessed()
+	statedb.ResetMVStates(len(block.Transactions()))
 
 	// usually do have two tx, one for validator set contract, another for system reward contract.
 	systemTxs := make([]*types.Transaction, 0, 2)
 
 	for i, tx := range block.Transactions() {
+		statedb.BeginTxStat(i)
 		if isPoSA {
 			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
 				bloomProcessors.Close()
 				return statedb, nil, nil, 0, err
 			} else if isSystemTx {
+				statedb.RecordSystemTxRWSet(i)
 				systemTxs = append(systemTxs, tx)
 				continue
 			}
@@ -134,6 +137,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		commonTxs = append(commonTxs, tx)
 		receipts = append(receipts, receipt)
+		statedb.StopTxStat(receipt.GasUsed)
 	}
 	bloomProcessors.Close()
 
@@ -143,7 +147,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		return nil, nil, nil, 0, errors.New("withdrawals before shanghai")
 	}
 
+	// TODO(galaio): append dag into block body, TxDAGPerformance will print metrics when profile is enabled
+	// compare input TxDAG when it enable in consensus
+	dag, exrStats := statedb.MVStates2TxDAG()
+	types.EvaluateTxDAGPerformance(dag, exrStats)
+	//fmt.Print(types.EvaluateTxDAGPerformance(dag, exrStats))
+	log.Info("Process result", "block", block.NumberU64(), "txDAG", dag)
+
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
+	// TODO: system txs must execute at last
 	err := p.engine.Finalize(p.bc, header, statedb, &commonTxs, block.Uncles(), withdrawals, &receipts, &systemTxs, usedGas)
 	if err != nil {
 		return statedb, receipts, allLogs, *usedGas, err

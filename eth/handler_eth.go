@@ -128,6 +128,9 @@ func (h *ethHandler) handleBlockBroadcast(peer *eth.Peer, packet *eth.NewBlockPa
 	if sidecars != nil {
 		block = block.WithSidecars(sidecars)
 	}
+	if len(packet.TxDAG) != 0 {
+		block = block.WithTxDAG(packet.TxDAG)
+	}
 
 	// Schedule the block for import
 	h.blockFetcher.Enqueue(peer.ID(), block)

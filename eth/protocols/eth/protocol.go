@@ -218,6 +218,7 @@ type NewBlockPacket struct {
 	Block    *types.Block
 	TD       *big.Int
 	Sidecars types.BlobSidecars `rlp:"optional"`
+	TxDAG    []byte             `rlp:"optional"`
 }
 
 // sanityCheck verifies that the values are reasonable, as a DoS protection
@@ -278,6 +279,8 @@ type BlockBody struct {
 	Uncles       []*types.Header      // Uncles contained within a block
 	Withdrawals  []*types.Withdrawal  `rlp:"optional"` // Withdrawals contained within a block
 	Sidecars     types.BlobSidecars   `rlp:"optional"` // Sidecars contained within a block
+	// TODO(galio): add block body later
+	//TxDAGs       [][]byte             `rlp:"optional"` // TxDAGs contained within a block
 }
 
 // Unpack retrieves the transactions and uncles from the range packet and returns

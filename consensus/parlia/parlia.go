@@ -1502,6 +1502,7 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 		}
 		copy(header.Extra[len(header.Extra)-extraSeal:], sig)
 
+		// TODO(galaio): add more TxDAG hash when TxDAG in consensus
 		if p.shouldWaitForCurrentBlockProcess(chain, header, snap) {
 			log.Info("Waiting for received in turn block to process")
 			select {

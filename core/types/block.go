@@ -204,6 +204,8 @@ type Body struct {
 	Transactions []*Transaction
 	Uncles       []*Header
 	Withdrawals  []*Withdrawal `rlp:"optional"`
+	// TODO: add TxDAG in block body
+	//TxDAG        []byte       `rlp:"optional"`
 }
 
 // Block represents an Ethereum block.
@@ -228,6 +230,8 @@ type Block struct {
 	uncles       []*Header
 	transactions Transactions
 	withdrawals  Withdrawals
+	// TODO(galaio): package txDAG in consensus later
+	txDAG []byte
 
 	// caches
 	hash atomic.Value
@@ -463,6 +467,10 @@ func (b *Block) Sidecars() BlobSidecars {
 	return b.sidecars
 }
 
+func (b *Block) TxDAG() []byte {
+	return b.txDAG
+}
+
 func (b *Block) CleanSidecars() {
 	b.sidecars = make(BlobSidecars, 0)
 }
@@ -502,6 +510,7 @@ func (b *Block) WithSeal(header *Header) *Block {
 		uncles:       b.uncles,
 		withdrawals:  b.withdrawals,
 		sidecars:     b.sidecars,
+		txDAG:        b.txDAG,
 	}
 }
 
@@ -513,6 +522,7 @@ func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 		uncles:       make([]*Header, len(uncles)),
 		withdrawals:  b.withdrawals,
 		sidecars:     b.sidecars,
+		txDAG:        b.txDAG,
 	}
 	copy(block.transactions, transactions)
 	for i := range uncles {
@@ -528,6 +538,7 @@ func (b *Block) WithWithdrawals(withdrawals []*Withdrawal) *Block {
 		transactions: b.transactions,
 		uncles:       b.uncles,
 		sidecars:     b.sidecars,
+		txDAG:        b.txDAG,
 	}
 	if withdrawals != nil {
 		block.withdrawals = make([]*Withdrawal, len(withdrawals))
@@ -543,10 +554,24 @@ func (b *Block) WithSidecars(sidecars BlobSidecars) *Block {
 		transactions: b.transactions,
 		uncles:       b.uncles,
 		withdrawals:  b.withdrawals,
+		txDAG:        b.txDAG,
 	}
 	if sidecars != nil {
 		block.sidecars = make(BlobSidecars, len(sidecars))
 		copy(block.sidecars, sidecars)
+	}
+	return block
+}
+
+// WithTxDAG returns a block containing the given txDAG.
+func (b *Block) WithTxDAG(txDAG []byte) *Block {
+	block := &Block{
+		header:       b.header,
+		transactions: b.transactions,
+		uncles:       b.uncles,
+		withdrawals:  b.withdrawals,
+		sidecars:     b.sidecars,
+		txDAG:        txDAG,
 	}
 	return block
 }
