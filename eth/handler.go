@@ -319,7 +319,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		return h.chain.InsertChain(blocks)
 	}
 
-	broadcastBlockWithCheck := func(block *types.Block, propagate bool) {
+	broadcastBlockWithCheck := func(peer string, block *types.Block, propagate bool) {
 		if propagate {
 			checkErrs := make(chan error, 2)
 
@@ -333,7 +333,8 @@ func newHandler(config *handlerConfig) (*handler, error) {
 			for i := 0; i < cap(checkErrs); i++ {
 				err := <-checkErrs
 				if err != nil {
-					log.Error("Propagating invalid block", "number", block.Number(), "hash", block.Hash(), "err", err)
+					log.Error("Propagating invalid block", "peer", peer, "number", block.Number(), "hash",
+						block.Hash(), "miner", block.Coinbase(), "err", err)
 					return
 				}
 			}

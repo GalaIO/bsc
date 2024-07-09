@@ -2,6 +2,7 @@ package core
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -98,7 +99,15 @@ func IsDataAvailable(chain consensus.ChainHeaderReader, block *types.Block) (err
 		blobTxIndexes = append(blobTxIndexes, uint64(i))
 	}
 	if len(blobTxs) != len(sidecars) {
-		return fmt.Errorf("blob info mismatch: sidecars %d, versionedHashes:%d", len(sidecars), len(blobTxs))
+		bs := map[string]interface{}{
+			"header":     block.Header(),
+			"Uncles":     block.Uncles(),
+			"Withdrawls": block.Withdrawals(),
+			"Sidecars":   block.Sidecars(),
+		}
+		henc, _ := json.Marshal(bs)
+		return fmt.Errorf("blob info mismatch: sidecars %d, versionedHashes:%d, number: %v, hash: %v, miner: %v, blockjson: %v",
+			len(sidecars), len(blobTxs), block.Number(), block.Hash(), block.Coinbase(), string(henc))
 	}
 
 	// check blob amount
