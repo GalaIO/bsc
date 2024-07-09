@@ -849,7 +849,9 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 
 		err := core.IsDataAvailable(q.reader, types.NewBlockWithHeader(header).
 			WithBody(txLists[index], uncleLists[index]).WithWithdrawals(withdrawalLists[index]).WithSidecars(sidecars[index]))
-		log.Error("DeliverBodies err", "peer", id, "err", err)
+		if err != nil {
+			log.Error("DeliverBodies err", "peer", id, "err", err)
+		}
 		return err
 	}
 
