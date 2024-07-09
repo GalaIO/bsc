@@ -849,7 +849,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 
 		err := core.IsDataAvailable(q.reader, types.NewBlockWithHeader(header).
 			WithBody(txLists[index], uncleLists[index]).WithWithdrawals(withdrawalLists[index]).WithSidecars(sidecars[index]))
-		return err
+		return fmt.Errorf("peer: %v, %v", id, err)
 	}
 
 	reconstruct := func(index int, result *fetchResult) {
