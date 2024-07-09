@@ -22,6 +22,8 @@ package downloader
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/core"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -150,12 +152,14 @@ type queue struct {
 	closed bool
 
 	logTime time.Time // Time instance when status was last reported
+	reader  consensus.ChainHeaderReader
 }
 
 // newQueue creates a new download queue for scheduling block retrieval.
-func newQueue(blockCacheLimit int, thresholdInitialSize int) *queue {
+func newQueue(reader consensus.ChainHeaderReader, blockCacheLimit int, thresholdInitialSize int) *queue {
 	lock := new(sync.RWMutex)
 	q := &queue{
+		reader:           reader,
 		headerContCh:     make(chan bool, 1),
 		blockTaskQueue:   prque.New[int64, *types.Header](nil),
 		blockWakeCh:      make(chan bool, 1),
@@ -842,7 +846,10 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 				return err
 			}
 		}
-		return nil
+
+		err := core.IsDataAvailable(q.reader, types.NewBlockWithHeader(header).
+			WithBody(txLists[index], uncleLists[index]).WithWithdrawals(withdrawalLists[index]).WithSidecars(sidecars[index]))
+		return err
 	}
 
 	reconstruct := func(index int, result *fetchResult) {

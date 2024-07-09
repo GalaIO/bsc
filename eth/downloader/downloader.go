@@ -20,6 +20,7 @@ package downloader
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/consensus"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -217,14 +218,14 @@ type BlockChain interface {
 type DownloadOption func(downloader *Downloader) *Downloader
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn, _ func()) *Downloader {
+func New(stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, chainReader consensus.ChainHeaderReader, lightchain LightChain, dropPeer peerDropFn, _ func()) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
 	dl := &Downloader{
 		stateDB:        stateDb,
 		mux:            mux,
-		queue:          newQueue(blockCacheMaxItems, blockCacheInitialItems),
+		queue:          newQueue(chainReader, blockCacheMaxItems, blockCacheInitialItems),
 		peers:          newPeerSet(),
 		blockchain:     chain,
 		lightchain:     lightchain,
