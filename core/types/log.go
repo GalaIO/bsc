@@ -17,6 +17,8 @@
 package types
 
 import (
+	"encoding/json"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -51,6 +53,21 @@ type Log struct {
 	// The Removed field is true if this log was reverted due to a chain reorganisation.
 	// You must pay attention to this field if you receive logs through a filter query.
 	Removed bool `json:"removed" rlp:"-"`
+}
+
+func (obj *Log) String() string {
+	type formatLog struct {
+		Address common.Address `json:"address"`
+		Topics  []common.Hash  `json:"topics"`
+		Data    hexutil.Bytes  `json:"data"`
+	}
+	fl := formatLog{
+		Address: obj.Address,
+		Topics:  obj.Topics,
+		Data:    obj.Data,
+	}
+	enc, _ := json.Marshal(&fl)
+	return string(enc)
 }
 
 type logMarshaling struct {
