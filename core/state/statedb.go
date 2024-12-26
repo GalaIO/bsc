@@ -1454,6 +1454,7 @@ func (s *StateDB) commitAndFlush(block uint64, deleteEmptyObjects bool) (*stateU
 	}
 	if !ret.empty() {
 		// If snapshotting is enabled, update the snapshot tree with this new version
+		log.Debug("snapshot db saving", "root", ret.root, "snapshot", s.db.Snapshot() != nil)
 		if snap := s.db.Snapshot(); snap != nil && snap.Snapshot(ret.originRoot) != nil {
 			start := time.Now()
 			if err := snap.Update(ret.root, ret.originRoot, ret.accounts, ret.storages); err != nil {
@@ -1469,14 +1470,17 @@ func (s *StateDB) commitAndFlush(block uint64, deleteEmptyObjects bool) (*stateU
 				}
 			}()
 			s.SnapshotCommits += time.Since(start)
+			log.Debug("snapshot db saving", "root", ret.root, "head", snap.Snapshot(ret.root) != nil)
 		}
 		// If trie database is enabled, commit the state update as a new layer
+		log.Debug("trie db saving", "root", ret.root, "trieDB", s.db.TrieDB() != nil)
 		if db := s.db.TrieDB(); db != nil && !s.noTrie {
 			start := time.Now()
 			if err := db.Update(ret.root, ret.originRoot, block, ret.nodes, ret.stateSet()); err != nil {
 				return nil, err
 			}
 			s.TrieDBCommits += time.Since(start)
+			log.Debug("trie db saving", "root", ret.root, "head", db.Head())
 		}
 	}
 	s.reader, _ = s.db.Reader(s.originalRoot)
