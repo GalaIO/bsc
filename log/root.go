@@ -53,8 +53,9 @@ func (l *AsyncLogItem) Format() []byte {
 
 type AsyncLogger struct {
 	f       *os.File
-	logChan chan AsyncLogItem
+	logChan chan []AsyncLogItem
 	stop    chan struct{}
+	buffer  []AsyncLogItem
 }
 
 func NewAsyncLogger(path string) *AsyncLogger {
@@ -62,21 +63,33 @@ func NewAsyncLogger(path string) *AsyncLogger {
 	if err != nil {
 		panic(err)
 	}
-	return &AsyncLogger{f: f, logChan: make(chan AsyncLogItem, 100000), stop: make(chan struct{})}
+	return &AsyncLogger{
+		f:       f,
+		logChan: make(chan []AsyncLogItem, 100000),
+		stop:    make(chan struct{}),
+		buffer:  make([]AsyncLogItem, 0, 10000),
+	}
 }
 
 func (l *AsyncLogger) Write(msg string, ctx []interface{}) {
-	l.logChan <- AsyncLogItem{
-		msg:  msg,
-		args: ctx,
+	if len(l.buffer) < cap(l.buffer) {
+		l.buffer = append(l.buffer, AsyncLogItem{
+			msg:  msg,
+			args: ctx,
+		})
+		return
 	}
+	l.logChan <- l.buffer
+	l.buffer = make([]AsyncLogItem, 0, 10000)
 }
 
 func (l *AsyncLogger) AsyncFlush() {
 	for {
 		select {
-		case item := <-l.logChan:
-			l.f.Write(item.Format())
+		case items := <-l.logChan:
+			for _, item := range items {
+				l.f.Write(item.Format())
+			}
 		case <-l.stop:
 			return
 		}
