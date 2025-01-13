@@ -84,7 +84,7 @@ func (l *AsyncLogger) AsyncFlush() {
 }
 
 func (l *AsyncLogger) Start() {
-	go l.Start()
+	go l.AsyncFlush()
 }
 
 func (l *AsyncLogger) Stop() {
