@@ -25,6 +25,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -235,7 +236,9 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.Hash {
 	)
 	if s.db.snap != nil {
 		start := time.Now()
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
+		if enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes())); err != nil {
+			log.Info("Richard:Failed to get storage", "addr=", s.addrHash)
+		}
 		if metrics.EnabledExpensive {
 			s.db.SnapshotStorageReads += time.Since(start)
 		}
@@ -246,7 +249,9 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.Hash {
 			}
 			value.SetBytes(content)
 		}
+		log.Info("RICHARD:storage read", "addr=", s.address, "key=", key, "val=", value)
 	}
+/*
 	// If the snapshot is unavailable or reading from it fails, load from the database.
 	if s.db.snap == nil || err != nil {
 		start := time.Now()
@@ -265,6 +270,7 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.Hash {
 		}
 		value.SetBytes(val)
 	}
+*/
 	s.setOriginStorage(key, value)
 	return value
 }
@@ -631,6 +637,7 @@ func (s *stateObject) GetPendingStorages() map[common.Hash][]byte {
 	var (
 		hasher = crypto.NewKeccakState()
 	)
+
 	if len(s.pendingStorage) > 0 {
 		dirtyStorage := make(map[common.Hash][]byte)
 		for key, value := range s.pendingStorage {
@@ -650,6 +657,9 @@ func (s *stateObject) GetPendingStorages() map[common.Hash][]byte {
 			}
 			dirtyStorage[crypto.HashData(hasher, key[:])] = encoded
 		}
+//		if len(dirtyStorage) == 0 {
+//			log.Info("Richard:", "get_len=", len(s.pendingStorage))
+//		}
 		return dirtyStorage
 	}
 	return nil

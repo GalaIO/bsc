@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -110,6 +111,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				return statedb, nil, nil, 0, err
 			} else if isSystemTx {
 				systemTxs = append(systemTxs, tx)
+				log.Info("Richard:", "tx is system txn")
 				continue
 			}
 		}
@@ -128,6 +130,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		statedb.SetTxContext(tx.Hash(), i)
 
 		receipt, err := applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, bloomProcessors)
+
+		log.Info("Richard:", "block=", blockNumber, "usedGas=", *usedGas, "i=", i, "tx_hash=", tx.Hash(), "msg=", msg)
+
 		if err != nil {
 			bloomProcessors.Close()
 			return statedb, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
@@ -142,6 +147,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if len(withdrawals) > 0 && !p.config.IsShanghai(block.Number(), block.Time()) {
 		return nil, nil, nil, 0, errors.New("withdrawals before shanghai")
 	}
+
+	log.Info("Richard: process", "usedGas=", usedGas)
 
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	err := p.engine.Finalize(p.bc, header, statedb, &commonTxs, block.Uncles(), withdrawals, &receipts, &systemTxs, usedGas)
@@ -165,16 +172,18 @@ func applyTransaction(msg *Message, config *params.ChainConfig, gp *GasPool, sta
 	if err != nil {
 		return nil, err
 	}
-
+	log.Info("Richard:", "result.UsedGas=", result.UsedGas)
 	// Update the state with pending changes.
 	var root []byte
 	if config.IsByzantium(blockNumber) {
 		statedb.Finalise(true)
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
+		panic("Richard, no ...... .....")
 	}
+	log.Info("Richard:", "usedGas_b=", *usedGas)
 	*usedGas += result.UsedGas
-
+	log.Info("Richard:", "usedGas=", *usedGas)
 	// Create a new receipt for the transaction, storing the intermediate root and gas used
 	// by the tx.
 	receipt := &types.Receipt{Type: tx.Type(), PostState: root, CumulativeGasUsed: *usedGas}

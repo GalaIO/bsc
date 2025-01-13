@@ -24,6 +24,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -244,27 +245,38 @@ func (dl *diffLayer) Journal(buffer *bytes.Buffer) (common.Hash, error) {
 	if err := rlp.Encode(buffer, dl.root); err != nil {
 		return common.Hash{}, err
 	}
+	log.Info("RICH:", "dl_root=", dl.root)
 	destructs := make([]journalDestruct, 0, len(dl.destructSet))
 	for hash := range dl.destructSet {
 		destructs = append(destructs, journalDestruct{Hash: hash})
+		log.Info("RICH:", "d_addrHash", hash)
 	}
 	if err := rlp.Encode(buffer, destructs); err != nil {
 		return common.Hash{}, err
 	}
 	accounts := make([]journalAccount, 0, len(dl.accountData))
+	log.Info("RICH:", "len_a=", len(dl.accountData))
 	for hash, blob := range dl.accountData {
+                acc := new(types.SlimAccount)
+                if err := rlp.DecodeBytes(blob, acc); err != nil {
+                        panic(err)
+                }
+		log.Info("RICH:", "addrHash=", hash, "acc.b=", acc.Balance, "acc.n=", acc.Nonce, "acc.c=", acc.CodeHash, "acc.root=", acc.Root)
 		accounts = append(accounts, journalAccount{Hash: hash, Blob: blob})
 	}
 	if err := rlp.Encode(buffer, accounts); err != nil {
 		return common.Hash{}, err
 	}
 	storage := make([]journalStorage, 0, len(dl.storageData))
+	log.Info("RICH:", "len_s=", len(dl.storageData))
 	for hash, slots := range dl.storageData {
 		keys := make([]common.Hash, 0, len(slots))
 		vals := make([][]byte, 0, len(slots))
+		log.Info("RICH:", "addrHash=", hash, "len_s_s=", len(slots))
 		for key, val := range slots {
 			keys = append(keys, key)
 			vals = append(vals, val)
+			log.Info("Richard:", "addrHash=", hash, "k=", key, "v=", val)
 		}
 		storage = append(storage, journalStorage{Hash: hash, Keys: keys, Vals: vals})
 	}

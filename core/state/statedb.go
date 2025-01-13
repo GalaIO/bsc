@@ -18,13 +18,15 @@
 package state
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"runtime"
 	"sort"
 	"sync"
 	"time"
+	"bytes"
 
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/gopool"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -445,6 +447,7 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 }
 
 func (s *StateDB) GetRoot(addr common.Address) common.Hash {
+	panic("No get root should be called during execution")
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.data.Root
@@ -720,9 +723,10 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			if data.Root == (common.Hash{}) {
 				data.Root = types.EmptyRootHash
 			}
+			log.Info("RICHARD:account", "addr=", addr, "acc.Nonce=", acc.Nonce, "acc.Balance=", acc.Balance, "acc.CodeHash=", acc.CodeHash, "acc.root=", acc.Root)
 		}
 	}
-
+/*
 	// If snapshot unavailable or reading from it failed, load from the database
 	if data == nil {
 		if s.trie == nil {
@@ -747,6 +751,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			return nil
 		}
 	}
+*/
 	// Insert into the live set
 	obj := newObject(s, addr, data)
 	s.setStateObject(obj)
@@ -1109,7 +1114,7 @@ func (s *StateDB) AccountsIntermediateRoot() {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			wg.Add(1)
 			tasks <- func() {
-				if _, ok := s.r_destructs[obj.addrHash]; !ok {
+				if _, ok := s.r_destructs[obj.addrHash]; !ok && !obj.created {
 					obj.data.Root = s.GetLatestVerifiedStateRoot(obj.addrHash)
 				}
 				obj.updateRoot()
@@ -1602,6 +1607,8 @@ func (s *StateDB) Commit(block uint64, postCommitFunc func() error) (common.Hash
 					toCorrectSnap := s.snaps.Snapshot(s.expectedRoot)
 					if toCorrectSnap != nil {
 						if !toCorrectSnap.Verified() {
+							// Compare the diff
+							CompareSnapDiff(block, toCorrectSnap, s.accounts, s.storages, s.convertAccountSet(s.stateObjectsDestruct))
 							if err := toCorrectSnap.CorrectAccounts(s.accounts); err != nil {
 								log.Crit("Failed to correct accounts for diff of block", "block=", block, "error", err)
 							}
@@ -1651,6 +1658,15 @@ func (s *StateDB) Commit(block uint64, postCommitFunc func() error) (common.Hash
 	return root, diffLayer, nil
 }
 
+func (s *StateDB) SetStaleForUnverifiedDiff() {
+        toStaleSnap := s.snaps.Snapshot(s.expectedRoot)
+        if toStaleSnap != nil {
+		if !toStaleSnap.Verified() {
+			toStaleSnap.SetStale()
+		}
+	}
+}
+
 func (s *StateDB) CommitUnVerifiedSnapDifflayer(deleteEmptyObjects bool) {
 	start := time.Now()
 	s.Finalise(deleteEmptyObjects)
@@ -1688,7 +1704,7 @@ func (s *StateDB) CommitUnVerifiedSnapDifflayer(deleteEmptyObjects bool) {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			tasks <- func() {
 				// s.r_accounts[obj.addrHash] = types.SlimAccountRLP(obj.data)
-				// obj.WriteCode()
+				obj.WriteCode()
 				taskResult := &taskResult{
 					hash:     obj.addrHash,
 					data:     types.SlimAccountRLP(obj.data),
@@ -1703,13 +1719,16 @@ func (s *StateDB) CommitUnVerifiedSnapDifflayer(deleteEmptyObjects bool) {
 		res := <-taskResults
 		s.r_accounts[res.hash] = res.data[:]
 		if res.storages != nil {
+			//if len(res.storages) > 0 {
 			s.r_storages[res.hash] = res.storages
+			//}
 		}
 	}
 	close(finishCh)
 
 	if s.snap != nil {
 		if parent := s.snap.Root(); parent != s.expectedRoot {
+			s.DumpDiff(s.expectedRoot, parent,s.r_accounts, s.r_storages, s.r_destructs)
 			err := s.snaps.Update(s.expectedRoot, parent, s.r_destructs, s.r_accounts, s.r_storages, false)
 			if err != nil {
 				log.Warn("Failed to update snapshot tree", "from", parent, "to", s.expectedRoot, "err", err)
@@ -1882,4 +1901,154 @@ func copy2DSet[k comparable](set map[k]map[common.Hash][]byte) map[k]map[common.
 		}
 	}
 	return copied
+}
+
+
+func CompareSnapDiff(block uint64, snap snapshot.Snapshot, accounts map[common.Hash][]byte, storages map[common.Hash]map[common.Hash][]byte, destructs map[common.Hash]struct{}) {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		// Compare destructs
+		d_destructs := snap.DiffDestructs()
+		if len(d_destructs) != len(destructs) {
+			panic(fmt.Sprintf("destruct set is not the same len, block=%d d_len=%d len=%d", block, len(d_destructs), len(destructs)))
+		}
+		for addrHash := range destructs {
+			if _, ok := d_destructs[addrHash]; !ok {
+				panic(fmt.Sprintf("destruct account is not found in diff, block=%d addr=%x", block, addrHash))
+			}
+		}
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		// Compare accounts
+		d_accounts := snap.DiffAccounts()
+		if len(accounts) != len(d_accounts) {
+			panic(fmt.Sprintf("accounts is not the same len, block=%d d_len=%d len=%d", block, len(d_accounts), len(accounts)))
+		}
+		for addrHash, d_acc_d := range d_accounts {
+			d_acc := new(types.SlimAccount)
+			if err := rlp.DecodeBytes(d_acc_d, d_acc); err != nil {
+				panic(err)
+			}
+			if acc_d, ok := accounts[addrHash]; !ok {
+				panic(fmt.Sprintf("destruct account is not found for diff, block=%d addr=%x", block, addrHash))
+			} else {
+				acc := new(types.SlimAccount)
+				if err := rlp.DecodeBytes(acc_d, acc); err != nil {
+					panic(err)
+				}
+
+				if d_acc.Nonce != acc.Nonce {
+					panic(fmt.Sprintf("account nonce not the same, block=%d, addr=%x, d_non=%d, non=%d", block, addrHash, d_acc.Nonce, acc.Nonce))
+				}
+
+				if !d_acc.Balance.Eq(acc.Balance) {
+					panic(fmt.Sprintf("account nonce not the same, block=%d, addr=%x, d_bal=%d, bal=%d", block, addrHash, d_acc.Balance, acc.Balance))
+				}
+
+				if !bytes.Equal(d_acc.CodeHash, acc.CodeHash) {
+					panic(fmt.Sprintf("account nonce not the same,block=%d,  addr=%x, d_ch=%d, ch=%d", block, addrHash, d_acc.CodeHash, acc.CodeHash))
+				}
+			}
+		}
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		// Compare storages
+		d_storages := snap.DiffStorages()
+		if len(storages) != len(d_storages) {
+			var emptyNum int
+			if len(storages) > len(d_storages) {
+				emptyNum = len(storages) - len(d_storages)
+				for _, storage := range d_storages {
+					if len(storage) == 0 {
+						emptyNum++
+					}
+				}
+
+				for _, storage := range storages {
+                                        if len(storage) == 0 {
+                                                emptyNum--
+                                        }
+                                }
+			} else {
+				emptyNum = len(d_storages) - len(storages)
+				for _, storage := range storages {
+					if len(storage) == 0 {
+						emptyNum++
+					}
+				}
+
+				for _, storage := range d_storages {
+                                        if len(storage) == 0 {
+                                                emptyNum--
+                                        }
+                                }
+			}
+			if emptyNum != 0 {
+				DumpStorage(storages)
+				DumpStorage(d_storages)
+				panic(fmt.Sprintf("Storages is not the same len, block=%d, d_len=%d len=%d", block, len(d_storages), len(storages)))
+			}
+		}
+		for addrHash, d_storage := range d_storages {
+			if storage, ok := storages[addrHash]; !ok {
+				panic(fmt.Sprintf("Storage is not found for diff,block=%d addr=%x", block, addrHash))
+			} else {
+				if len(d_storage) != len(storage) {
+					panic(fmt.Sprintf("Storage is not the same len, block=%d, addr=%x d_len=%d, len=%d", block, addrHash, len(d_storage), len(storage)))
+				}
+				for dk, dv := range d_storage {
+					if v, ok := storage[dk]; !ok {
+						panic(fmt.Sprintf("Storage key is not found for diff,block=%d, addr=%x, dk=%x", block, addrHash, dk))
+					} else {
+						if !bytes.Equal(dv, v) {
+							panic(fmt.Sprintf("Storage kv is not the same,block=%d, addr=%x, k=%x, dv=%x, v=%x", block, addrHash, dk, dv, v))
+						}
+					}
+				}
+			}
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func DumpStorage(storages map[common.Hash]map[common.Hash][]byte) {
+	log.Info("Richard_s:", "len_s=", len(storages))
+	for addrHash, storage := range storages {
+		log.Info("Richard:", "addrHash=", addrHash, "len=", len(storage))
+		for k,v := range storage {
+			log.Info("Richard:", "addr=", addrHash, "k=", k, "v=", v)
+		}
+	}
+}
+
+func (s *StateDB) DumpDiff(eRoot common.Hash, pRoot common.Hash, accounts map[common.Hash][]byte, storages map[common.Hash]map[common.Hash][]byte, destructs map[common.Hash]struct{}) {
+        log.Info("Richard: start dump", "eRoot=", eRoot, "pRoot=", pRoot)
+        log.Info("Richard:", "len_a=", len(accounts))
+        for addrHash, acc_d := range accounts {
+                acc := new(types.SlimAccount)
+                if err := rlp.DecodeBytes(acc_d, acc); err != nil {
+                       panic(err)
+                }
+                log.Info("Richard:", "addrHash=", addrHash, "acc.b=", acc.Balance, "acc.n=", acc.Nonce, "acc.c=", acc.CodeHash, "acc.root=", acc.Root)
+        }
+        log.Info("Richard:", "len_s=", len(storages))
+        for addrHash, storage := range storages {
+                log.Info("Richard:", "addrHash=", addrHash, "len_s_s=", len(storage))
+                for k,v := range storage {
+                        log.Info("Richard:", "addrHash=", addrHash, "k=", k, "v=", v)
+                }
+        }
+        log.Info("Richard:", "len_d=", len(destructs))
+        for addrHash := range destructs {
+                log.Info("Richard:", "d_addrHash=", addrHash)
+        }
 }

@@ -109,6 +109,9 @@ type Snapshot interface {
 	// CorrectAccounts
 	CorrectAccounts(accounts map[common.Hash][]byte) error
 
+	// SetStale set unverified diff to stale
+	SetStale()
+
 	// Account directly retrieves the account associated with a particular hash in
 	// the snapshot slim data format.
 	Account(hash common.Hash) (*types.SlimAccount, error)
@@ -128,6 +131,12 @@ type Snapshot interface {
 	// Parent returns the subsequent layer of a snapshot, or nil if the base was
 	// reached.
 	Parent() snapshot
+	
+	DiffDestructs() map[common.Hash]struct{}
+
+	DiffStorages() map[common.Hash]map[common.Hash][]byte
+
+	DiffAccounts() map[common.Hash][]byte
 }
 
 // snapshot is the internal version of the snapshot data layer that supports some
@@ -725,6 +734,7 @@ func (t *Tree) Journal(root common.Hash) (common.Hash, error) {
 	if snap == nil {
 		return common.Hash{}, fmt.Errorf("snapshot [%#x] missing", root)
 	}
+	log.Info("RICH:", "start journal for c_root=", root)
 	// Run the journaling
 	t.lock.Lock()
 	defer t.lock.Unlock()
@@ -738,6 +748,7 @@ func (t *Tree) Journal(root common.Hash) (common.Hash, error) {
 	if diskroot == (common.Hash{}) {
 		return common.Hash{}, errors.New("invalid disk root")
 	}
+	log.Info("RICH:", "disk_root=", root)
 	// Secondly write out the disk layer root, ensure the
 	// diff journal is continuous with disk.
 	if err := rlp.Encode(journal, diskroot); err != nil {
@@ -750,6 +761,7 @@ func (t *Tree) Journal(root common.Hash) (common.Hash, error) {
 	}
 	// Store the journal into the database and return
 	rawdb.WriteSnapshotJournal(t.diskdb, journal.Bytes())
+	log.Info("RICH:", "journal done")
 	return base, nil
 }
 

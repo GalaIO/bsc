@@ -1317,6 +1317,7 @@ func (p *Parlia) Finalize(chain consensus.ChainHeaderReader, header *types.Heade
 		}
 	}
 	val := header.Coinbase
+	log.Info("Richard:", "val=", val)
 	err = p.distributeIncoming(val, state, header, cx, txs, receipts, systemTxs, usedGas, false)
 	if err != nil {
 		return err
@@ -1816,6 +1817,7 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.StateDB, he
 		if rewards.Cmp(common.U2560) > 0 {
 			state.SetBalance(consensus.SystemAddress, balance.Sub(balance, rewards))
 			state.AddBalance(coinbase, rewards)
+			log.Info("Richard:system", "reward=", rewards.ToBig())
 			err := p.distributeToSystem(rewards.ToBig(), state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 			if err != nil {
 				return err
@@ -1831,6 +1833,7 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.StateDB, he
 	state.SetBalance(consensus.SystemAddress, common.U2560)
 	state.AddBalance(coinbase, balance)
 	log.Trace("distribute to validator contract", "block hash", header.Hash(), "amount", balance)
+	log.Info("Richard:validator", "val=", balance.ToBig())
 	return p.distributeToValidator(balance.ToBig(), val, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 }
 
@@ -1953,6 +1956,10 @@ func (p *Parlia) applyTransaction(
 		}
 		actualTx := (*receivedTxs)[0]
 		if !bytes.Equal(p.signer.Hash(actualTx).Bytes(), expectedHash.Bytes()) {
+			hasher := crypto.NewKeccakState()
+			log.Info("Richard:", "block=", header.Number, "msg.from_hash=", crypto.HashData(hasher, msg.From().Bytes()))
+			log.Info("Richard:", "nonce=", nonce, "msg=", msg)
+			log.Info("Richard:", "expectedTx=",expectedTx, "actualTx=", actualTx)
 			return fmt.Errorf("expected tx hash %v, get %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s", expectedHash.String(), actualTx.Hash().String(),
 				expectedTx.Nonce(),
 				expectedTx.To().String(),

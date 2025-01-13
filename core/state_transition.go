@@ -22,6 +22,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	cmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -410,10 +411,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Info("Richard:", "st.gasRemain=", st.gasRemaining, "gas=", gas)
 	if st.gasRemaining < gas {
 		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, st.gasRemaining, gas)
 	}
 	st.gasRemaining -= gas
+	log.Info("Richard419:", "st.gasRemain=", st.gasRemaining)
 
 	// Check clause 6
 	value, overflow := uint256.FromBig(msg.Value)
@@ -440,10 +443,12 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	)
 	if contractCreation {
 		ret, _, st.gasRemaining, vmerr = st.evm.Create(sender, msg.Data, st.gasRemaining, value)
+		log.Info("Richard445:", "st.gasRemain=", st.gasRemaining)
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From, st.state.GetNonce(sender.Address())+1)
 		ret, st.gasRemaining, vmerr = st.evm.Call(sender, st.to(), msg.Data, st.gasRemaining, value)
+		log.Info("Richard450:", "st.gasRemain=", st.gasRemaining)
 	}
 
 	var gasRefund uint64
@@ -506,6 +511,7 @@ func (st *StateTransition) refundGas(refundQuotient uint64) uint64 {
 
 // gasUsed returns the amount of gas used up by the state transition.
 func (st *StateTransition) gasUsed() uint64 {
+	log.Info("Richard:", "st.initGas=", st.initialGas, "st.gasRemain=", st.gasRemaining)
 	return st.initialGas - st.gasRemaining
 }
 

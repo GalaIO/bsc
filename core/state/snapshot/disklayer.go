@@ -191,3 +191,20 @@ func (dl *diskLayer) CorrectAccounts(accounts map[common.Hash][]byte) error {
 func (dl *diskLayer) Verified() bool {
 	return true
 }
+
+// SetStale
+func (dl *diskLayer) SetStale() {
+	return
+}
+
+func (dl *diskLayer) DiffDestructs() map[common.Hash]struct{} {
+	return nil
+}
+
+func (dl *diskLayer) DiffStorages() map[common.Hash]map[common.Hash][]byte {
+	return nil
+}
+
+func (dl *diskLayer) DiffAccounts() map[common.Hash][]byte {
+	return nil
+}
