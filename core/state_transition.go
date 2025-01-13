@@ -383,9 +383,9 @@ func (st *StateTransition) TransitionDb() (r *ExecutionResult, e error) {
 		return nil, err
 	}
 
-	log.Info("tx transit start", "caller", st.msg.From, "to", st.msg.To, "initialGas", st.initialGas, "value", st.msg.Value.Uint64())
+	log.AsyncLog("tx transit start", "caller", st.msg.From, "to", st.msg.To, "initialGas", st.initialGas, "value", st.msg.Value.Uint64())
 	defer func() { // Lazy evaluation of the parameters
-		log.Info("tx transit end", "ret", r, "gasRemaining", st.gasRemaining, "err", e)
+		log.AsyncLog("tx transit end", "ret", r, "gasRemaining", st.gasRemaining, "err", e)
 	}()
 	if tracer := st.evm.Config.Tracer; tracer != nil {
 		tracer.CaptureTxStart(st.initialGas)

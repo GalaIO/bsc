@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -30,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -104,6 +104,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// usually do have two tx, one for validator set contract, another for system reward contract.
 	systemTxs := make([]*types.Transaction, 0, 2)
 
+	log.AsyncLog("block start", "block", block.Number().Uint64(), "hash", block.Hash(), "gasused", block.GasUsed())
+	defer func() { // Lazy evaluation of the parameters
+		log.AsyncLog("block end", "block", block.Number().Uint64(), "hash", block.Hash())
+	}()
 	for i, tx := range block.Transactions() {
 		if isPoSA {
 			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
@@ -115,6 +119,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				continue
 			}
 		}
+		log.AsyncLog("tx start", "index", i, "tx", tx.Hash())
 		if p.config.IsCancun(block.Number(), block.Time()) {
 			if len(systemTxs) > 0 {
 				// systemTxs should be always at the end of block.
@@ -132,7 +137,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipt, err := applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, bloomProcessors)
 
 		log.Info("Richard:", "block=", blockNumber, "usedGas=", *usedGas, "i=", i, "tx_hash=", tx.Hash(), "msg=", msg)
-
+		log.AsyncLog("tx end", "index", i, "GasUsed", receipt.GasUsed)
 		if err != nil {
 			bloomProcessors.Close()
 			return statedb, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)

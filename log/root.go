@@ -1,6 +1,8 @@
 package log
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
@@ -25,6 +27,74 @@ func SetDefault(l Logger) {
 // Root returns the root logger
 func Root() Logger {
 	return root.Load().(Logger)
+}
+
+type AsyncLogItem struct {
+	msg  string
+	args []interface{}
+}
+
+func (l *AsyncLogItem) Format() []byte {
+	sb := bytes.NewBuffer(nil)
+	sb.WriteString(l.msg)
+	sb.WriteString(" ")
+	for i := 0; i < len(l.args); i += 2 {
+		if i+1 >= len(l.args) {
+			break
+		}
+		if i > 0 {
+			sb.WriteString(" ")
+		}
+		sb.WriteString(fmt.Sprintf("%v=%v", l.args[i], l.args[i+1]))
+	}
+	sb.WriteByte('\n')
+	return sb.Bytes()
+}
+
+type AsyncLogger struct {
+	f       *os.File
+	logChan chan AsyncLogItem
+	stop    chan struct{}
+}
+
+func NewAsyncLogger(path string) *AsyncLogger {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	return &AsyncLogger{f: f, logChan: make(chan AsyncLogItem, 100000), stop: make(chan struct{})}
+}
+
+func (l *AsyncLogger) Write(msg string, ctx []interface{}) {
+	l.logChan <- AsyncLogItem{
+		msg:  msg,
+		args: ctx,
+	}
+}
+
+func (l *AsyncLogger) AsyncFlush() {
+	for {
+		select {
+		case item := <-l.logChan:
+			l.f.Write(item.Format())
+		case <-l.stop:
+			return
+		}
+	}
+}
+
+func (l *AsyncLogger) Start() {
+	go l.Start()
+}
+
+func (l *AsyncLogger) Stop() {
+	close(l.stop)
+}
+
+var AsyncLoggerRoot = NewAsyncLogger("./tracer.log")
+
+func AsyncLog(msg string, ctx ...interface{}) {
+	AsyncLoggerRoot.Write(msg, ctx)
 }
 
 // The following functions bypass the exported logger methods (logger.Debug,
