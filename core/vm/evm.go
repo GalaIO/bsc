@@ -357,9 +357,9 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	var snapshot = evm.StateDB.Snapshot()
 
 	// Invoke tracer hooks that signal entering/exiting a call frame
-	log.Info("delegatecall start", "depth", evm.depth, "caller", caller.Address(), "addr", addr, "gas", gas)
+	log.AsyncLog("delegatecall start", "depth", evm.depth, "caller", caller.Address(), "addr", addr, "gas", gas)
 	defer func() { // Lazy evaluation of the parameters
-		log.Info("delegatecall end", "depth", evm.depth, "ret", len(ret), "leftOverGas", leftOverGas, "err", err)
+		log.AsyncLog("delegatecall end", "depth", evm.depth, "ret", len(ret), "leftOverGas", leftOverGas, "err", err)
 	}()
 	if evm.Config.Tracer != nil {
 		// NOTE: caller must, at all times be a contract. It should never happen
