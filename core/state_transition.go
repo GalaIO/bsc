@@ -22,13 +22,13 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	cmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 )
@@ -367,7 +367,7 @@ func (st *StateTransition) preCheck() error {
 //
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
-func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
+func (st *StateTransition) TransitionDb() (r *ExecutionResult, e error) {
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
 	//
@@ -383,6 +383,10 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		return nil, err
 	}
 
+	log.Info("tx transit start", "caller", st.msg.From, "to", st.msg.To, "initialGas", st.initialGas, "value", st.msg.Value.Uint64())
+	defer func() { // Lazy evaluation of the parameters
+		log.Info("tx transit end", "ret", r, "gasRemaining", st.gasRemaining, "err", e)
+	}()
 	if tracer := st.evm.Config.Tracer; tracer != nil {
 		tracer.CaptureTxStart(st.initialGas)
 		defer func() {

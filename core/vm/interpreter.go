@@ -170,6 +170,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 	}()
 	contract.Input = input
 
+	log.Info("interpreter run start", "depth", in.evm.depth, "caller", contract.CallerAddress, "contract", contract.Address(), "cotract.gas", contract.Gas)
+	defer func() { // Lazy evaluation of the parameters
+		log.Info("interpreter run end", "depth", in.evm.depth, "ret", len(ret), "cotract.gas", contract.Gas, "err", err)
+	}()
 	if debug {
 		defer func() {
 			if err != nil {
@@ -245,6 +249,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		}
 		// execute the operation
 		res, err = operation.execute(&pc, in, callContext)
+		log.Info("op execute", "depth", in.evm.depth, "op", op, "cost", cost, "cotract.gas", contract.Gas, "err", err)
 		if err != nil {
 			break
 		}
