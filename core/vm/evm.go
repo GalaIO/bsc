@@ -240,7 +240,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	// Capture the tracer start/end events in debug mode
 	log.AsyncLog("call start", "depth", evm.depth, "caller", caller.Address(), "addr", addr, "gas", gas, "value", value.Uint64())
 	defer func(startGas uint64) { // Lazy evaluation of the parameters
-		log.AsyncLog("call end", "depth", evm.depth, "ret", len(ret), "leftOverGas", leftOverGas, "err", err)
+		log.AsyncLog("call end", "depth", evm.depth, "ret", len(ret), "usedGas", startGas-gas, "err", err)
 	}(gas)
 	if debug {
 		if evm.depth == 0 {

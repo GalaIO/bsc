@@ -2,6 +2,7 @@ package log
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"sync/atomic"
@@ -44,6 +45,10 @@ func (l *AsyncLogItem) Format() []byte {
 		}
 		if i > 0 {
 			sb.WriteString(" ")
+		}
+		if b, ok := (l.args[i+1]).([]byte); ok {
+			sb.WriteString(fmt.Sprintf("%v=%v", l.args[i], hex.EncodeToString(b)))
+			continue
 		}
 		sb.WriteString(fmt.Sprintf("%v=%v", l.args[i], l.args[i+1]))
 	}
@@ -90,6 +95,7 @@ func (l *AsyncLogger) AsyncFlush() {
 			for _, item := range items {
 				l.f.Write(item.Format())
 			}
+			l.f.Sync()
 		case <-l.stop:
 			return
 		}

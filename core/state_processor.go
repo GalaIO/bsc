@@ -137,7 +137,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipt, err := applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, bloomProcessors)
 
 		//log.Info("Richard:", "block=", blockNumber, "usedGas=", *usedGas, "i=", i, "tx_hash=", tx.Hash(), "msg=", msg)
-		log.AsyncLog("tx end", "index", i, "GasUsed", receipt.GasUsed)
+		if err != nil {
+			log.AsyncLog("tx end", "index", i, "err", err)
+		} else {
+			log.AsyncLog("tx end", "index", i, "GasUsed", receipt.GasUsed)
+		}
 		if err != nil {
 			bloomProcessors.Close()
 			return statedb, nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
